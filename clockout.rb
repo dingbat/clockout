@@ -117,6 +117,35 @@ def print_estimations(blocks)
 	puts " "*($cols-sum_str.length) + sum_str.red
 end
 
+def print_days(blocks)
+	current_mins = 0
+	current_day = nil
+
+	print_current_data = lambda do
+		hrs = "#{(current_mins/60.0).round(2)} hrs"
+
+		print current_day
+		print " "*($cols/4 - current_day.length - hrs.length)
+		puts hrs.light_blue
+	end
+
+	blocks.each do |block|
+		block.each do |commit|
+			day = commit.date.strftime('%b %e')
+			if (day != current_day)
+				if (current_day)
+					print_current_data.call
+				end
+				current_day = day
+				current_mins = 0
+			end
+			current_mins += commit.minutes
+		end
+	end
+
+	print_current_data.call
+end
+
 repo = Grit::Repo.new(ARGV[0])
 commits = repo.commits('master', 500)
 commits.reverse!
@@ -126,3 +155,5 @@ blocks = seperate_into_blocks(repo, commits)
 print_estimations(blocks)
 puts
 print_timeline(blocks)
+puts
+print_days(blocks)
