@@ -2,6 +2,8 @@ require 'rubygems'
 require 'grit'
 require 'colorize'
 
+$cols = 100
+
 class Commit
 	attr_accessor :message, :minutes, :date
 end
@@ -69,25 +71,50 @@ def print_timeline(blocks)
 
 		block.each do |commit|
 			block_sum += commit.minutes
-			c_mins = "#{commit.minutes.round(2)} | "
+			if commit.minutes < 60
+				c_mins = "#{commit.minutes.round(0)}m | "
+			else
+				c_mins = "#{(commit.minutes/60.0).round(1)}h | "
+			end
 			char_count += c_mins.length
 			print c_mins
 		end
 
 		if block_sum > 60
-			block_sum_str = "#{(block_sum/60).round(2)}  hr"
+			block_sum_str = "#{(block_sum/60.0).round(2)} hrs"
 		else
-			block_sum_str = "#{block_sum.round(2)} min"
+			block_sum_str = "#{block_sum.round(0)} min"
 		end
 		char_count += block_sum_str.length
-		puts " "*(100-char_count) + block_sum_str.light_blue
+		puts " "*($cols-char_count) + block_sum_str.light_blue
 
 		total_mins += block_sum
 	end
 
-	puts " "*(100-10) + ("-"*10).red
-	total_str = "= #{(total_mins/60).round(2)} hrs"
-	puts " "*(100-total_str.length)+total_str.red
+	puts " "*($cols-10) + ("-"*10).red
+	total_str = "= #{(total_mins/60.0).round(2)} hrs"
+	puts " "*($cols-total_str.length)+total_str.red
+end
+
+def print_estimations(blocks)
+	sum = 0
+	blocks.each do |block|
+		first = block.first
+		print first.message[0..70]
+		if first.minutes < 60
+			time = "#{first.minutes.round(0)} min"
+		else
+			time = "#{(first.minutes/60.0).round(2)} hr"
+		end
+		print " "*($cols-first.message[0..70].length-time.length)
+		puts time.light_blue
+
+		sum += first.minutes
+	end
+
+	puts " "*($cols-10) + ("-"*10).red
+	sum_str = "#{(sum/60.0).round(2)} hr"
+	puts " "*($cols-sum_str.length) + sum_str.red
 end
 
 repo = Grit::Repo.new(ARGV[0])
@@ -96,4 +123,6 @@ commits.reverse!
 
 blocks = seperate_into_blocks(repo, commits)
 
+print_estimations(blocks)
+puts
 print_timeline(blocks)
