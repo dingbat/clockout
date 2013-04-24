@@ -1,9 +1,6 @@
 require 'rubygems'
 require 'grit'
-
-repo = Grit::Repo.new(ARGV[0])
-commits = repo.commits('master', 500)
-commits.reverse!
+require 'colorize'
 
 class Commit
 	attr_accessor :message, :minutes, :date
@@ -36,7 +33,6 @@ def seperate_into_blocks(repo, commits)
 		c = Commit.new
 		c.date = commit.committed_date
 		c.message = commit.message
-		c.minutes = 0
 
 		if block.size > 0
 			time_since_last = (block.last.date - commit.committed_date).abs/60
@@ -44,12 +40,15 @@ def seperate_into_blocks(repo, commits)
 			if (time_since_last > 120) #new block cutoff at 2 hrs
 				blocks << block
 				block = []
-
-				#first commit of the block, so we don't know when work started
-				c.minutes = estimate_commit_minutes(commit)
 			else
 				c.minutes = time_since_last
 			end
+		end
+
+
+		#first commit of the new block, so we don't know when work started. estimate
+		if !c.minutes
+			c.minutes = estimate_commit_minutes(commit)
 		end
 
 		block << c
@@ -58,10 +57,43 @@ def seperate_into_blocks(repo, commits)
 	blocks << block
 end
 
-blocks = seperate_into_blocks(repo, commits)
-blocks.each do |block|
-	block.each do |commit|
-		puts "#{commit.minutes.round(2)} #{commit.message}"
+def print_timeline(blocks)
+	total_mins = 0
+	blocks.each do |block|
+		block_sum = 0
+		char_count = 0
+
+		date = block.first.date.strftime('%b %e, %l:%M %p')+":  "
+		char_count += date.length
+		print date.yellow
+
+		block.each do |commit|
+			block_sum += commit.minutes
+			c_mins = "#{commit.minutes.round(2)} | "
+			char_count += c_mins.length
+			print c_mins
+		end
+
+		if block_sum > 60
+			block_sum_str = "#{(block_sum/60).round(2)}  hr"
+		else
+			block_sum_str = "#{block_sum.round(2)} min"
+		end
+		char_count += block_sum_str.length
+		puts " "*(100-char_count) + block_sum_str.light_blue
+
+		total_mins += block_sum
 	end
-	puts
+
+	puts " "*(100-10) + ("-"*10).red
+	total_str = "= #{(total_mins/60).round(2)} hrs"
+	puts " "*(100-total_str.length)+total_str.red
 end
+
+repo = Grit::Repo.new(ARGV[0])
+commits = repo.commits('master', 500)
+commits.reverse!
+
+blocks = seperate_into_blocks(repo, commits)
+
+print_timeline(blocks)
