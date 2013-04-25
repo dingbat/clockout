@@ -1,6 +1,9 @@
+#!/usr/bin/env ruby
+
 require 'rubygems'
 require 'grit'
 require 'colorize'
+require 'trollop'
 
 $cols = 100
 
@@ -12,18 +15,15 @@ def estimate_commit_minutes(commit)
 	plus, minus = 0, 0
 
 	commit.stats.to_diffstat.each do |diff_stat|
-		# make sure the change was with code (adding, say, an image will give tons of additions)
-		code = (diff_stat.filename =~ /\.(m|h|txt)$/)
-		# I didn't write this file, ignore it
-		lx = (diff_stat.filename =~ /LXReorderableCollectionViewFlowLayout/)
-		if code && !lx
+		should_include = (diff_stat.filename =~ /#{$opts[:include_diffs]}/)
+		should_ignore = $opts[:ignore_diffs] && (diff_stat.filename =~ /#{$opts[:ignore_diffs]}/)
+		if should_include && !should_ignore
 			plus += diff_stat.additions
 			minus += diff_stat.deletions
 		end
 	end
 
-	#estimating (through trial and error) 4 additions and 8 deletions per minute
-	return (plus/4+minus/8)
+	return (plus/$opts[:additions_per_min]+minus/$opts[:deletions_per_min])
 end
 
 def seperate_into_blocks(repo, commits)
@@ -39,7 +39,7 @@ def seperate_into_blocks(repo, commits)
 		if block.size > 0
 			time_since_last = (block.last.date - commit.committed_date).abs/60
 			
-			if (time_since_last > 120) #new block cutoff at 2 hrs
+			if (time_since_last > $opts[:time]) #new block cutoff at 2 hrs
 				blocks << block
 				block = []
 			else
@@ -50,7 +50,11 @@ def seperate_into_blocks(repo, commits)
 
 		#first commit of the new block, so we don't know when work started. estimate
 		if !c.minutes
-			c.minutes = estimate_commit_minutes(commit)
+			if $opts[:ignore_initial] && blocks.size == 0
+				c.minutes = 0
+			else
+				c.minutes = estimate_commit_minutes(commit)
+			end
 		end
 
 		block << c
@@ -104,7 +108,7 @@ def print_estimations(blocks)
 		if first.minutes < 60
 			time = "#{first.minutes.round(0)} min"
 		else
-			time = "#{(first.minutes/60.0).round(2)} hr"
+			time = "#{(first.minutes/60.0).round(2)} hrs"
 		end
 		print " "*($cols-first.message[0..70].length-time.length)
 		puts time.light_blue
@@ -146,7 +150,26 @@ def print_days(blocks)
 	print_current_data.call
 end
 
-repo = Grit::Repo.new(ARGV[0])
+$opts = Trollop::options do
+  banner <<-EOS
+Clockout v0.1
+Usage:
+       ./clock.rb [options] <git directory path>
+
+Options:
+EOS
+  opt :ignore_initial, "Ignore initial commit, if it's just template/boilerplate"
+  opt :time, "Minimum time between blocks of commits, in minutes", :default => 120
+  opt :include_diffs, "Files to include diffs of when estimating commit time (regex)", :default => "\\.(m|h|txt)$", :type => :string
+  opt :ignore_diffs, "Files to ignore diffs of when estimating commit time (regex)", :type => :string
+  opt :additions_per_min, "Additions per minute; used when estimating commit time", :default => 4
+  opt :deletions_per_min, "Deletions per minute; used when estimating commit time", :default => 8
+end
+
+path = ARGV.last
+Trollop::die "Git directory path must be specified" unless path && File.directory?(path)
+
+repo = Grit::Repo.new(ARGV.last)
 commits = repo.commits('master', 500)
 commits.reverse!
 
