@@ -1,18 +1,23 @@
-You're being paid by the hour, but do you really want to worry about logging your hours? If you're using Git, isn't that already being done for you?
+# :clock8: Clockout#
 
-Clockout is a tool that'll analyze a Git repository and break down your commits into blocks of time worked, reporting them as hours per day.
+You're being paid by the hour, but do you really want to worry about logging your hours? If you're using Git, isn't that already being done for you? **Clockout** is a tool that analyzes a Git repo and converts your commits into blocks of time worked.
 
 How?
-======
+--------
 
 Clockout determines how long each commit took by taking the time interval since the previous one, if it's close enough. If it's the first commit in a time block, it'll estimate a time for it based on the size of its diff (using the diffs vs. time data from your other commits).
 
 With this data you can print out pretty charts and tables (pretty as CLI graphics go) to show your boss, and your repository is the evidence to back it up.
 
 Usage
-======
+--------
 
-```./clockout.rb [options] <path to git repo>```
+To run:
+
+
+```
+./clockout.rb [options] <path to git repo>
+```
 
 Options:
 
@@ -26,8 +31,10 @@ Options:
 ```
 
 Dependencies
-======
+--------
 
 Grit and Trollop. To install,
 
-```sudo gem install grit trollop```
+```
+sudo gem install grit trollop
+```
