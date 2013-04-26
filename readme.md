@@ -33,8 +33,8 @@ Options:
 Dependencies
 --------
 
-Grit and Trollop. To install,
+Grit, Trollop and Colorize. To install,
 
 ```
-sudo gem install grit trollop
+sudo gem install grit trollop colorize
 ```
