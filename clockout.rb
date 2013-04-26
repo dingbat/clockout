@@ -79,12 +79,15 @@ def seperate_into_blocks(repo, commits)
 end
 
 def print_chart(blocks)
+	cols = ($opts[:condensed] ? 30 : $cols)
 	total_sum = 0
 	current_day = nil
 	blocks.each do |block|
 		format = '%B %e, %Y'
 		date = block.first.date.strftime(format)
 		if date != current_day
+			puts if (!$opts[:condensed])
+
 			current_day = date
 
 			sum = 0
@@ -98,19 +101,18 @@ def print_chart(blocks)
 			total_sum += sum
 
 			sum_str = "#{(sum/60.0).round(2)} hrs"
-			puts
 			print date.magenta
-			print ("."*($cols - date.length - sum_str.length)).magenta
+			print ("."*(cols - date.length - sum_str.length)).magenta
 			print sum_str.red
 			puts
 		end
 
-		print_timeline(block)
+		print_timeline(block) if (!$opts[:condensed])
 	end
 
-	puts " "*($cols-10) + ("-"*10).magenta
+	puts " "*(cols-10) + ("-"*10).magenta
 	sum_str = "#{(total_sum/60.0).round(2)} hrs"
-	puts " "*($cols-sum_str.length) + sum_str.red
+	puts " "*(cols-sum_str.length) + sum_str.red
 end
 
 def print_timeline(block)
@@ -136,7 +138,6 @@ def print_timeline(block)
 		end
 
 		char_count += add
-
 
 		print c_mins+seperator.red
 	end
@@ -185,6 +186,7 @@ EOS
   opt :include_diffs, "File extensions to include diffs of when estimating commit time (regex)", :default => "(m|h|rb|txt)", :type => :string
   opt :ignore_diffs, "Files to ignore diffs of when estimating commit time (regex)", :type => :string
   opt :estimations, "Show estimations made for first commit of each block"
+  opt :condensed, "Condense output (don't show the timeline for each day)"
 end
 
 path = ARGV.last
