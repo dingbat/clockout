@@ -23,7 +23,8 @@ def diffs(commit)
 		end
 	end
 
-	# Weight deletions half as much, since they are typically faster & also are 1:1 with additions when changing a line
+	# Weight deletions half as much, since they are typically
+	# faster to do & also are 1:1 with additions when changing a line
 	plus+minus/2
 end
 
