@@ -5,7 +5,7 @@ require 'grit'
 require 'colorize'
 require 'trollop'
 
-$cols = 90
+$cols = 80
 
 class Commit
 	attr_accessor :message, :minutes, :date, :diffs
@@ -15,7 +15,7 @@ def diffs(commit)
 	plus, minus = 0, 0
 
 	commit.stats.to_diffstat.each do |diff_stat|
-		should_include = (diff_stat.filename =~ /#{$opts[:include_diffs]}/)
+		should_include = (diff_stat.filename =~ /#{"\\."+$opts[:include_diffs]+"$"}/)
 		should_ignore = (diff_stat.filename =~ /#{$opts[:ignore_diffs]}/) && $opts[:ignore_diffs]
 		if should_include && !should_ignore
 			plus += diff_stat.additions
@@ -38,14 +38,13 @@ def seperate_into_blocks(repo, commits)
 
 		c = Commit.new
 		c.date = commit.committed_date
-		c.message = commit.message[0..70].gsub("\n",' ')
-		c.message += "..." if commit.message.length > 70
+		c.message = commit.message.gsub("\n",' ')
 		c.diffs = diffs(commit)
 
 		if block.size > 0
 			time_since_last = (block.last.date - commit.committed_date).abs/60
 			
-			if (time_since_last > $opts[:time]) #new block cutoff at 2 hrs
+			if (time_since_last > $opts[:time])
 				blocks << block
 				block = []
 			else
@@ -77,13 +76,14 @@ def print_chart(blocks)
 	total_sum = 0
 	current_day = nil
 	blocks.each do |block|
-		date = block.first.date.strftime('%B %e, %Y')
+		format = '%B %e, %Y'
+		date = block.first.date.strftime(format)
 		if date != current_day
 			current_day = date
 
 			sum = 0
 			blocks.each do |block|
-				d = block.first.date.strftime('%B %e, %Y')
+				d = block.first.date.strftime(format)
 				next if d != current_day
 				block.each do |c|
 					sum += c.minutes
@@ -111,13 +111,28 @@ def print_timeline(block)
 	time = block.first.date.strftime('%l:%M %p')+":  "
 	print time.yellow
 
+	char_count = time.length
+
 	block.each do |commit|
 		if commit.minutes < 60
 			c_mins = "#{commit.minutes.round(0)}m"
 		else
 			c_mins = "#{(commit.minutes/60.0).round(1)}h"
 		end
-		print c_mins+" | ".red
+
+		seperator = " | "
+	
+		add = c_mins.length+seperator.length
+		if char_count + add > $cols-5
+			puts
+			char_count = time.length # indent by the length of the time label on left
+			print " "*char_count
+		end
+
+		char_count += add
+
+
+		print c_mins+seperator.red
 	end
 	puts
 end
@@ -127,35 +142,41 @@ def print_estimations(blocks)
 	blocks.each do |block|
 		first = block.first
 		date = first.date.strftime('%b %e')+": "
-		print date.yellow
-		print first.message
 		if first.minutes < 60
 			time = "#{first.minutes.round(0)} min"
 		else
 			time = "#{(first.minutes/60.0).round(2)} hrs"
 		end
-		print " "*($cols-first.message.length-time.length-date.length)
+
+		print date.yellow
+
+		cutoff = $cols-time.length-date.length-6
+		message = first.message[0..cutoff]
+		message += "..." if first.message.length > cutoff
+		print message
+
+		print " "*($cols-message.length-time.length-date.length)
 		puts time.light_blue
 
 		sum += first.minutes
 	end
 
-	puts " "*($cols-10) + ("-"*10).red
+	puts " "*($cols-10) + ("-"*10).light_blue
 	sum_str = "#{(sum/60.0).round(2)} hrs"
-	puts " "*($cols-sum_str.length) + sum_str.red
+	puts " "*($cols-sum_str.length) + sum_str.light_blue
 end
 
 $opts = Trollop::options do
   banner <<-EOS
 Clockout v0.1
 Usage:
-       ./clock.rb [options] <git directory path>
+       ./clockout.rb [options] <path to git repo>
 
 Options:
 EOS
   opt :ignore_initial, "Ignore initial commit, if it's just template/boilerplate"
   opt :time, "Minimum time between blocks of commits, in minutes", :default => 120
-  opt :include_diffs, "Files to include diffs of when estimating commit time (regex)", :default => "\\.(m|h|txt)$", :type => :string
+  opt :include_diffs, "File extensions to include diffs of when estimating commit time (regex)", :default => "(m|h|txt)", :type => :string
   opt :ignore_diffs, "Files to ignore diffs of when estimating commit time (regex)", :type => :string
   opt :estimations, "Show estimations made for first commit of each block"
 end
@@ -171,7 +192,6 @@ blocks = seperate_into_blocks(repo, commits)
 
 if ($opts[:estimations])
 	print_estimations(blocks)
-	puts
 end
 
 print_chart(blocks)
