@@ -8,33 +8,37 @@ require 'trollop'
 $cols = 100
 
 class Commit
-	attr_accessor :message, :minutes, :date
+	attr_accessor :message, :minutes, :date, :diffs
 end
 
-def estimate_commit_minutes(commit)
+def diffs(commit)
 	plus, minus = 0, 0
 
 	commit.stats.to_diffstat.each do |diff_stat|
 		should_include = (diff_stat.filename =~ /#{$opts[:include_diffs]}/)
-		should_ignore = $opts[:ignore_diffs] && (diff_stat.filename =~ /#{$opts[:ignore_diffs]}/)
+		should_ignore = (diff_stat.filename =~ /#{$opts[:ignore_diffs]}/) && $opts[:ignore_diffs]
 		if should_include && !should_ignore
 			plus += diff_stat.additions
 			minus += diff_stat.deletions
 		end
 	end
 
-	return (plus/$opts[:additions_per_min]+minus/$opts[:deletions_per_min])
+	# Weight deletions half as much, since they are typically faster & also are 1:1 with additions when changing a line
+	plus+minus/2
 end
 
 def seperate_into_blocks(repo, commits)
 	blocks = []
 	block = []
 
+	total_diffs, total_mins = 0, 0
+
 	commits.each do |commit|
 
 		c = Commit.new
 		c.date = commit.committed_date
 		c.message = commit.message
+		c.diffs = diffs(commit)
 
 		if block.size > 0
 			time_since_last = (block.last.date - commit.committed_date).abs/60
@@ -44,16 +48,9 @@ def seperate_into_blocks(repo, commits)
 				block = []
 			else
 				c.minutes = time_since_last
-			end
-		end
 
-
-		#first commit of the new block, so we don't know when work started. estimate
-		if !c.minutes
-			if $opts[:ignore_initial] && blocks.size == 0
-				c.minutes = 0
-			else
-				c.minutes = estimate_commit_minutes(commit)
+				total_diffs += c.diffs
+				total_mins += c.minutes
 			end
 		end
 
@@ -61,6 +58,17 @@ def seperate_into_blocks(repo, commits)
 	end
 
 	blocks << block
+
+	# Now go through each block's first commit and estimate the time it took
+	blocks.each do |block|
+		first = block.first
+		if $opts[:ignore_initial] && block == blocks.first
+			first.minutes = 0
+		else
+			# Underestimate by a factor of 0.9
+			first.minutes = 0.9*first.diffs*(1.0*total_mins/total_diffs)
+		end
+	end
 end
 
 def print_timeline(blocks)
@@ -104,20 +112,22 @@ def print_estimations(blocks)
 	sum = 0
 	blocks.each do |block|
 		first = block.first
+		date = first.date.strftime('%b %e')+": "
+		print date.yellow
 		print first.message[0..70]
 		if first.minutes < 60
 			time = "#{first.minutes.round(0)} min"
 		else
 			time = "#{(first.minutes/60.0).round(2)} hrs"
 		end
-		print " "*($cols-first.message[0..70].length-time.length)
+		print " "*($cols-first.message[0..70].length-time.length-date.length)
 		puts time.light_blue
 
 		sum += first.minutes
 	end
 
 	puts " "*($cols-10) + ("-"*10).red
-	sum_str = "#{(sum/60.0).round(2)} hr"
+	sum_str = "#{(sum/60.0).round(2)} hrs"
 	puts " "*($cols-sum_str.length) + sum_str.red
 end
 
@@ -162,12 +172,11 @@ EOS
   opt :time, "Minimum time between blocks of commits, in minutes", :default => 120
   opt :include_diffs, "Files to include diffs of when estimating commit time (regex)", :default => "\\.(m|h|txt)$", :type => :string
   opt :ignore_diffs, "Files to ignore diffs of when estimating commit time (regex)", :type => :string
-  opt :additions_per_min, "Additions per minute; used when estimating commit time", :default => 4
-  opt :deletions_per_min, "Deletions per minute; used when estimating commit time", :default => 8
+  opt :estimations, "Show estimations made for first commit of each block"
 end
 
 path = ARGV.last
-Trollop::die "Git directory path must be specified" unless path && File.directory?(path)
+Trollop::die "Git repo path must be specified" unless path && File.directory?(path)
 
 repo = Grit::Repo.new(ARGV.last)
 commits = repo.commits('master', 500)
@@ -175,8 +184,10 @@ commits.reverse!
 
 blocks = seperate_into_blocks(repo, commits)
 
-print_estimations(blocks)
-puts
+if ($opts[:estimations])
+	print_estimations(blocks)
+	puts
+end
 print_timeline(blocks)
 puts
 print_days(blocks)
