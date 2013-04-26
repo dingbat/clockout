@@ -29,4 +29,5 @@ Dependencies
 ======
 
 Grit and Trollop. To install,
+
 ```sudo gem install grit trollop```

@@ -5,7 +5,7 @@ require 'grit'
 require 'colorize'
 require 'trollop'
 
-$cols = 100
+$cols = 90
 
 class Commit
 	attr_accessor :message, :minutes, :date, :diffs
@@ -38,7 +38,8 @@ def seperate_into_blocks(repo, commits)
 
 		c = Commit.new
 		c.date = commit.committed_date
-		c.message = commit.message
+		c.message = commit.message[0..70].gsub("\n",' ')
+		c.message += "..." if commit.message.length > 70
 		c.diffs = diffs(commit)
 
 		if block.size > 0
@@ -72,41 +73,53 @@ def seperate_into_blocks(repo, commits)
 	end
 end
 
-def print_timeline(blocks)
-	total_mins = 0
+def print_chart(blocks)
+	total_sum = 0
+	current_day = nil
 	blocks.each do |block|
-		block_sum = 0
-		char_count = 0
+		date = block.first.date.strftime('%B %e, %Y')
+		if date != current_day
+			current_day = date
 
-		date = block.first.date.strftime('%b %e, %l:%M %p')+":  "
-		char_count += date.length
-		print date.yellow
-
-		block.each do |commit|
-			block_sum += commit.minutes
-			if commit.minutes < 60
-				c_mins = "#{commit.minutes.round(0)}m | "
-			else
-				c_mins = "#{(commit.minutes/60.0).round(1)}h | "
+			sum = 0
+			blocks.each do |block|
+				d = block.first.date.strftime('%B %e, %Y')
+				next if d != current_day
+				block.each do |c|
+					sum += c.minutes
+				end
 			end
-			char_count += c_mins.length
-			print c_mins
+			total_sum += sum
+
+			sum_str = "#{(sum/60.0).round(2)} hrs"
+			puts
+			print date.magenta
+			print ("."*($cols - date.length - sum_str.length)).magenta
+			print sum_str.red
+			puts
 		end
 
-		if block_sum > 60
-			block_sum_str = "#{(block_sum/60.0).round(2)} hrs"
-		else
-			block_sum_str = "#{block_sum.round(0)} min"
-		end
-		char_count += block_sum_str.length
-		puts " "*($cols-char_count) + block_sum_str.light_blue
-
-		total_mins += block_sum
+		print_timeline(block)
 	end
 
-	puts " "*($cols-10) + ("-"*10).red
-	total_str = "= #{(total_mins/60.0).round(2)} hrs"
-	puts " "*($cols-total_str.length)+total_str.red
+	puts " "*($cols-10) + ("-"*10).magenta
+	sum_str = "#{(total_sum/60.0).round(2)} hrs"
+	puts " "*($cols-sum_str.length) + sum_str.red
+end
+
+def print_timeline(block)
+	time = block.first.date.strftime('%l:%M %p')+":  "
+	print time.yellow
+
+	block.each do |commit|
+		if commit.minutes < 60
+			c_mins = "#{commit.minutes.round(0)}m"
+		else
+			c_mins = "#{(commit.minutes/60.0).round(1)}h"
+		end
+		print c_mins+" | ".red
+	end
+	puts
 end
 
 def print_estimations(blocks)
@@ -115,13 +128,13 @@ def print_estimations(blocks)
 		first = block.first
 		date = first.date.strftime('%b %e')+": "
 		print date.yellow
-		print first.message[0..70]
+		print first.message
 		if first.minutes < 60
 			time = "#{first.minutes.round(0)} min"
 		else
 			time = "#{(first.minutes/60.0).round(2)} hrs"
 		end
-		print " "*($cols-first.message[0..70].length-time.length-date.length)
+		print " "*($cols-first.message.length-time.length-date.length)
 		puts time.light_blue
 
 		sum += first.minutes
@@ -130,35 +143,6 @@ def print_estimations(blocks)
 	puts " "*($cols-10) + ("-"*10).red
 	sum_str = "#{(sum/60.0).round(2)} hrs"
 	puts " "*($cols-sum_str.length) + sum_str.red
-end
-
-def print_days(blocks)
-	current_mins = 0
-	current_day = nil
-
-	print_current_data = lambda do
-		hrs = "#{(current_mins/60.0).round(2)} hrs"
-
-		print current_day
-		print " "*($cols/4 - current_day.length - hrs.length)
-		puts hrs.light_blue
-	end
-
-	blocks.each do |block|
-		block.each do |commit|
-			day = commit.date.strftime('%b %e')
-			if (day != current_day)
-				if (current_day)
-					print_current_data.call
-				end
-				current_day = day
-				current_mins = 0
-			end
-			current_mins += commit.minutes
-		end
-	end
-
-	print_current_data.call
 end
 
 $opts = Trollop::options do
@@ -189,6 +173,5 @@ if ($opts[:estimations])
 	print_estimations(blocks)
 	puts
 end
-print_timeline(blocks)
-puts
-print_days(blocks)
+
+print_chart(blocks)
