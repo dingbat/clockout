@@ -1,9 +1,15 @@
 #!/usr/bin/env ruby
 
 require 'rubygems'
-require 'grit'
-require 'colorize'
-require 'trollop'
+begin
+	require 'grit'
+	require 'colorize'
+	require 'trollop'
+rescue Exception => e
+	puts "Couldn't find one or more of gems 'grit', `trollop`, or `colorize` on your system."
+	puts "Please run `sudo gem install grit trollop colorize` and try again."
+	exit
+end
 
 $cols = 80
 
@@ -63,7 +69,7 @@ def seperate_into_blocks(repo, commits)
 	# Now go through each block's first commit and estimate the time it took
 	blocks.each do |block|
 		first = block.first
-		if $opts[:ignore_initial] && block == blocks.first
+		if ($opts[:ignore_initial] && block == blocks.first) || total_diffs == 0
 			first.minutes = 0
 		else
 			# Underestimate by a factor of 0.9
@@ -176,7 +182,7 @@ Options:
 EOS
   opt :ignore_initial, "Ignore initial commit, if it's just template/boilerplate"
   opt :time, "Minimum time between blocks of commits, in minutes", :default => 120
-  opt :include_diffs, "File extensions to include diffs of when estimating commit time (regex)", :default => "(m|h|txt)", :type => :string
+  opt :include_diffs, "File extensions to include diffs of when estimating commit time (regex)", :default => "(m|h|rb|txt)", :type => :string
   opt :ignore_diffs, "Files to ignore diffs of when estimating commit time (regex)", :type => :string
   opt :estimations, "Show estimations made for first commit of each block"
 end
