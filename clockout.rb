@@ -20,8 +20,10 @@ def diffs(commit)
 	plus, minus = 0, 0
 
 	commit.stats.to_diffstat.each do |diff_stat|
-		should_include = (diff_stat.filename =~ /#{"\\."+$opts[:include_diffs]+"$"}/)
-		should_ignore = (diff_stat.filename =~ /#{$opts[:ignore_diffs]}/) && $opts[:ignore_diffs]
+        my_files = $opts[:my_files]
+        not_my_files = $opts[:not_my_files]
+		should_include = (diff_stat.filename =~ eval(my_files))
+		should_ignore = not_my_files && (diff_stat.filename =~ eval(not_my_files))
 		if should_include && !should_ignore
 			plus += diff_stat.additions
 			minus += diff_stat.deletions
@@ -50,7 +52,7 @@ def seperate_into_blocks(repo, commits)
 		if block.size > 0
 			time_since_last = (block.last.date - commit.committed_date).abs/60
 			
-			if (time_since_last > $opts[:time])
+			if (time_since_last > $opts[:time_cutoff])
 				blocks << block
 				block = []
 			else
@@ -177,8 +179,7 @@ def print_estimations(blocks)
 end
 
 def parse_options(args)
-	# defaults
-	opts = {time:120, include_diffs:".*"}
+    opts = {}
 
 	args.each do |arg|
 		if (arg == "-h" || arg == "--help")
@@ -198,24 +199,45 @@ def parse_options(args)
 end
 
 def get_repo(path)
-	if (!path)
-		puts "Error: Git repo path must be specified."
-		puts "Usage:"
-		puts "        ./clockout.rb [options] <path to git repo>"
-    else
-    	begin
-    		return Grit::Repo.new(path)
-    	rescue Exception => e
-    		if e.class == Grit::NoSuchPathError
-    			puts "Error: Path '#{path}' could not be found."
-    		else
-    			puts "Error: '#{path}' is not a Git repository."
-    		end
-    	end
+    begin
+        return Grit::Repo.new(path)
+    rescue Exception => e
+        if e.class == Grit::NoSuchPathError
+            puts "Error: Path '#{path}' could not be found."
+        else
+            puts "Error: '#{path}' is not a Git repository."
+        end
     end
 end
 
-$opts = parse_options(ARGV)
+def parse_clockfile(file)
+    opts = {}
+
+    File.foreach(file) do |line|
+        line.strip!
+
+        next if line[0] == ";" || line.length == 0
+
+        sides = line.split("=")
+        left = sides[0].strip
+        right = sides[1].strip
+
+        if left == "ignore_initial"
+            right = (right != "0")
+        elsif left == "time_cutoff"
+            right = right.to_i
+        end
+
+        opts[left.to_sym] = right
+    end
+
+    opts
+end
+
+# defaults
+$opts = {time_cutoff:120, my_files:"/.*/"}
+$opts.merge!(parse_options(ARGV))
+
 if $opts[:help]
 	banner = <<-EOS
 Clockout v0.1
@@ -232,6 +254,15 @@ EOS
 end
 
 path = ARGV[0] || nil
+if (!path)
+    puts "Error: Git repo path must be specified."
+    puts "Usage:"
+    puts "        ./clockout.rb [options] <path to git repo>"
+    exit
+end
+
+clock_path = File.expand_path(path)+"/.clock"
+$opts.merge!(parse_clockfile(clock_path)) if File.exists?(clock_path)
 
 repo = get_repo(path) || exit
 	

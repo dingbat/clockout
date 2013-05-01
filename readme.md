@@ -22,14 +22,9 @@ To run:
 Options:
 
 ```
-     --ignore-initial, -i:   Ignore initial commit, if it's just template/boilerplate
-           --time, -t <i>:   Minimum time between blocks of commits, in minutes (default: 120)
-  --include-diffs, -n <s>:   File extensions to include diffs of when estimating commit time (regex)
-                             (default: (m|h|rb|txt))
-   --ignore-diffs, -g <s>:   Files to ignore diffs of when estimating commit time (regex)
-        --estimations, -e:   Show estimations made for first commit of each block
-          --condensed, -c:   Condense output (don't show the timeline for each day)
-               --help, -h:   Show this message
+    --estimations, -e:   Show estimations made for first commit of each block
+      --condensed, -c:   Condense output (don't show the timeline for each day)
+           --help, -h:   Show this message
 ```
 
 Dependencies
