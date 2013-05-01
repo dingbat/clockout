@@ -116,7 +116,8 @@ def print_chart(blocks)
 end
 
 def print_timeline(block)
-	time = block.first.date.strftime('%l:%M %p')+":  "
+	# subtract from the time it took for first commit
+	time = (block.first.date - block.first.minutes*60).strftime('%l:%M %p')+":  "
 	print time.yellow
 
 	char_count = time.length
