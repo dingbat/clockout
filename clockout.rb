@@ -224,12 +224,25 @@ def parse_clockfile(file)
 
     opts = {}
 
+    line_num = 0
     File.foreach(file) do |line|
+        line_num += 1
         line.strip!
 
         next if line[0] == ";" || line.length == 0
 
-        sides = line.split("=")
+        sides = line.split("=",2)
+
+        if sides.length != 2
+            puts "Error: bad syntax on line #{line_num} of .clock file:"
+            puts "    #{line}"
+            puts ""
+            puts "Line must be of form:"
+            puts "    KEY = VALUE"
+
+            exit
+        end
+
         left = sides[0].strip
         right = sides[1].strip
 
@@ -245,12 +258,12 @@ def parse_clockfile(file)
     opts
 end
 
-# defaults
-$opts = {time_cutoff:120, my_files:"/.*/"}
-$opts.merge!(parse_options(ARGV))
+def prepare_options
+    opts = {time_cutoff:120, my_files:"/.*/"} # defaults
+    opts.merge!(parse_options(ARGV))
 
-if $opts[:help]
-	banner = <<-EOS
+    if opts[:help]
+        banner = <<-EOS
 Clockout v0.1
 Usage:
         ./clockout.rb [options] <path to git repo>
@@ -261,36 +274,42 @@ Options:
       --see-clock, -s:   See options specified in .clock file
            --help, -h:   Show this message
 EOS
-	puts banner
-	exit
-end
-
-path = ARGV[0] || nil
-if (!path)
-    puts "Error: Git repo path must be specified."
-    puts "Usage:"
-    puts "        ./clockout.rb [options] <path to git repo>"
-    exit
-end
-
-clock_path = File.expand_path(path)+"/.clock"
-clock_opts = parse_clockfile(clock_path)
-
-if $opts[:see_clock]
-    if !clock_opts
-        puts "No .clock file found at '#{clock_path}'."
-    else
-        puts "Clock options:"
-        clock_opts.each do |k, v|
-            puts "    #{k}:#{' '*(20-k.length)}#{v}"
-        end
+        puts banner
+        exit
     end
-    exit
+
+    path = ARGV[0] || nil
+    if (!path)
+        puts "Error: Git repo path must be specified."
+        puts "Usage:"
+        puts "        ./clockout.rb [options] <path to git repo>"
+        exit
+    end
+
+    opts[:path] = path
+
+    clock_path = File.expand_path(path)+"/.clock"
+    clock_opts = parse_clockfile(clock_path)
+
+    if opts[:see_clock]
+        if !clock_opts
+            puts "No .clock file found at '#{clock_path}'."
+        else
+            puts "Clock options:"
+            clock_opts.each do |k, v|
+                key = k[0..19]
+                puts "    #{key}:#{' '*(20-key.length)}#{v}"
+            end
+        end
+        exit
+    end
+
+    opts.merge!(clock_opts) if clock_opts
+    opts
 end
 
-$opts.merge!(clock_opts) if clock_opts
-
-repo = get_repo(path) || exit
+$opts = prepare_options
+repo = get_repo($opts[:path]) || exit
 	
 commits = repo.commits('master', 500)
 commits.reverse!
