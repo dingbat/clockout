@@ -31,8 +31,8 @@ Options:
 Dependencies
 --------
 
-Grit and Colorize. To install,
+Grit. To install,
 
 ```
-sudo gem install grit colorize
+sudo gem install grit
 ```

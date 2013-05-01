@@ -3,17 +3,26 @@
 require 'rubygems'
 begin
 	require 'grit'
-	require 'colorize'
 rescue Exception => e
-	puts "Couldn't find one or more of gems 'grit', or `colorize` on your system."
-	puts "Please run `sudo gem install grit colorize` and try again."
+	puts "Couldn't find the `grit` gem on your system."
+	puts "Please run `sudo gem install grit` and try again."
 	exit
 end
 
 $cols = 80
+$day_format = '%B %e, %Y'
+$time_per_day = Hash.new(0)
 
 class Commit
 	attr_accessor :message, :minutes, :date, :diffs, :sha
+end
+
+RED = 31
+YELLOW = 33
+MAGENTA = 35
+LIGHT_BLUE = 94
+def colorize(str, color)
+    "\e[0;#{color};49m#{str}\e[0m"
 end
 
 def diffs(commit)
@@ -58,6 +67,8 @@ def seperate_into_blocks(repo, commits)
 			else
 				c.minutes = time_since_last
 
+                $time_per_day[c.date.strftime($day_format)] += c.minutes
+
 				total_diffs += c.diffs
 				total_mins += c.minutes
 			end
@@ -75,15 +86,14 @@ def seperate_into_blocks(repo, commits)
         # See if they were overriden in the .clock file
         if ($opts[first.sha.to_sym])
             first.minutes = $opts[first.sha.to_sym].to_i
-            next
-        end
-
-		if ($opts[:ignore_initial] && block == blocks.first) || total_diffs == 0
+		elsif ($opts[:ignore_initial] && block == blocks.first) || total_diffs == 0
 			first.minutes = 0
 		else
 			# Underestimate by a factor of 0.9
 			first.minutes = 0.9*first.diffs*(1.0*total_mins/total_diffs)
 		end
+
+        $time_per_day[first.date.strftime($day_format)] += first.minutes
 	end
 end
 
@@ -92,42 +102,34 @@ def print_chart(blocks)
 	total_sum = 0
 	current_day = nil
 	blocks.each do |block|
-		format = '%B %e, %Y'
-		date = block.first.date.strftime(format)
+		date = block.first.date.strftime($day_format)
 		if date != current_day
 			puts if (!$opts[:condensed])
 
 			current_day = date
 
-			sum = 0
-			blocks.each do |block|
-				d = block.first.date.strftime(format)
-				next if d != current_day
-				block.each do |c|
-					sum += c.minutes
-				end
-			end
+			sum = $time_per_day[date]
 			total_sum += sum
 
 			sum_str = "#{(sum/60.0).round(2)} hrs"
-			print date.magenta
-			print ("."*(cols - date.length - sum_str.length)).magenta
-			print sum_str.red
+			print colorize(date,MAGENTA)
+			print colorize("."*(cols - date.length - sum_str.length),MAGENTA)
+			print colorize(sum_str,RED)
 			puts
 		end
 
 		print_timeline(block) if (!$opts[:condensed])
 	end
 
-	puts " "*(cols-10) + ("-"*10).magenta
+	puts " "*(cols-10) + colorize("-"*10,MAGENTA)
 	sum_str = "#{(total_sum/60.0).round(2)} hrs"
-	puts " "*(cols-sum_str.length) + sum_str.red
+	puts " "*(cols-sum_str.length) + colorize(sum_str,RED)
 end
 
 def print_timeline(block)
 	# subtract from the time it took for first commit
 	time = (block.first.date - block.first.minutes*60).strftime('%l:%M %p')+":  "
-	print time.yellow
+	print colorize(time,YELLOW)
 
 	char_count = time.length
 
@@ -149,7 +151,7 @@ def print_timeline(block)
 
 		char_count += add
 
-		print c_mins+seperator.red
+		print c_mins+colorize(seperator,RED)
 	end
 	puts
 end
@@ -166,8 +168,8 @@ def print_estimations(blocks)
 			time = "#{(first.minutes/60.0).round(2)} hrs"
 		end
 
-		print date.yellow
-		print sha.red
+		print colorize(date,YELLOW)
+		print colorize(sha,RED)
 
 		cutoff = $cols-time.length-date.length-6-sha.length
 		message = first.message[0..cutoff]
@@ -175,14 +177,14 @@ def print_estimations(blocks)
 		print message
 
 		print " "*($cols-message.length-time.length-date.length-sha.length)
-		puts time.light_blue
+		puts colorize(time, LIGHT_BLUE)
 
 		sum += first.minutes
 	end
 
-	puts " "*($cols-10) + ("-"*10).light_blue
+	puts " "*($cols-10) + colorize("-"*10,LIGHT_BLUE)
 	sum_str = "#{(sum/60.0).round(2)} hrs"
-	puts " "*($cols-sum_str.length) + sum_str.light_blue
+	puts " "*($cols-sum_str.length) + colorize(sum_str, LIGHT_BLUE)
 end
 
 def parse_options(args)
