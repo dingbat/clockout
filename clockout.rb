@@ -14,7 +14,7 @@ end
 $cols = 80
 
 class Commit
-	attr_accessor :message, :minutes, :date, :diffs
+	attr_accessor :message, :minutes, :date, :diffs, :sha
 end
 
 def diffs(commit)
@@ -46,6 +46,7 @@ def seperate_into_blocks(repo, commits)
 		c.date = commit.committed_date
 		c.message = commit.message.gsub("\n",' ')
 		c.diffs = diffs(commit)
+		c.sha = commit.id
 
 		if block.size > 0
 			time_since_last = (block.last.date - commit.committed_date).abs/60
@@ -150,6 +151,7 @@ def print_estimations(blocks)
 	blocks.each do |block|
 		first = block.first
 		date = first.date.strftime('%b %e')+": "
+		sha = first.sha[0..7]+" "
 		if first.minutes < 60
 			time = "#{first.minutes.round(0)} min"
 		else
@@ -157,13 +159,14 @@ def print_estimations(blocks)
 		end
 
 		print date.yellow
+		print sha.red
 
-		cutoff = $cols-time.length-date.length-6
+		cutoff = $cols-time.length-date.length-6-sha.length
 		message = first.message[0..cutoff]
 		message += "..." if first.message.length > cutoff
 		print message
 
-		print " "*($cols-message.length-time.length-date.length)
+		print " "*($cols-message.length-time.length-date.length-sha.length)
 		puts time.light_blue
 
 		sum += first.minutes
@@ -201,6 +204,6 @@ blocks = seperate_into_blocks(repo, commits)
 
 if ($opts[:estimations])
 	print_estimations(blocks)
+else
+	print_chart(blocks)
 end
-
-print_chart(blocks)
