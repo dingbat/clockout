@@ -191,6 +191,8 @@ def parse_options(args)
 	args.each do |arg|
 		if (arg == "-h" || arg == "--help")
 			opts[:help] = true
+        elsif (arg == "-s" || arg == "--see-clock")
+            opts[:see_clock] = true
 		elsif (arg == "-e" || arg == "--estimations")
 			opts[:estimations] = true
 		elsif (arg == "-c" || arg == "--condensed")
@@ -218,6 +220,8 @@ def get_repo(path)
 end
 
 def parse_clockfile(file)
+    return nil if !File.exists?(file)
+
     opts = {}
 
     File.foreach(file) do |line|
@@ -254,6 +258,7 @@ Usage:
 Options:
     --estimations, -e:   Show estimations made for first commit of each block
       --condensed, -c:   Condense output (don't show the timeline for each day)
+      --see-clock, -s:   See options specified in .clock file
            --help, -h:   Show this message
 EOS
 	puts banner
@@ -269,7 +274,21 @@ if (!path)
 end
 
 clock_path = File.expand_path(path)+"/.clock"
-$opts.merge!(parse_clockfile(clock_path)) if File.exists?(clock_path)
+clock_opts = parse_clockfile(clock_path)
+
+if $opts[:see_clock]
+    if !clock_opts
+        puts "No .clock file found at '#{clock_path}'."
+    else
+        puts "Clock options:"
+        clock_opts.each do |k, v|
+            puts "    #{k}:#{' '*(20-k.length)}#{v}"
+        end
+    end
+    exit
+end
+
+$opts.merge!(clock_opts) if clock_opts
 
 repo = get_repo(path) || exit
 	

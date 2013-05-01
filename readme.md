@@ -24,6 +24,7 @@ Options:
 ```
     --estimations, -e:   Show estimations made for first commit of each block
       --condensed, -c:   Condense output (don't show the timeline for each day)
+      --see-clock, -s:   See options specified in .clock file
            --help, -h:   Show this message
 ```
 
