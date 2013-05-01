@@ -4,10 +4,9 @@ require 'rubygems'
 begin
 	require 'grit'
 	require 'colorize'
-	require 'trollop'
 rescue Exception => e
-	puts "Couldn't find one or more of gems 'grit', `trollop`, or `colorize` on your system."
-	puts "Please run `sudo gem install grit trollop colorize` and try again."
+	puts "Couldn't find one or more of gems 'grit', or `colorize` on your system."
+	puts "Please run `sudo gem install grit colorize` and try again."
 	exit
 end
 
@@ -177,26 +176,65 @@ def print_estimations(blocks)
 	puts " "*($cols-sum_str.length) + sum_str.light_blue
 end
 
-$opts = Trollop::options do
-  banner <<-EOS
-Clockout v0.1
-Usage:
-       ./clockout.rb [options] <path to git repo>
+def parse_options(args)
+	# defaults
+	opts = {time:120, include_diffs:".*"}
 
-Options:
-EOS
-  opt :ignore_initial, "Ignore initial commit, if it's just template/boilerplate"
-  opt :time, "Minimum time between blocks of commits, in minutes", :default => 120
-  opt :include_diffs, "File extensions to include diffs of when estimating commit time (regex)", :default => "(m|h|rb|txt)", :type => :string
-  opt :ignore_diffs, "Files to ignore diffs of when estimating commit time (regex)", :type => :string
-  opt :estimations, "Show estimations made for first commit of each block"
-  opt :condensed, "Condense output (don't show the timeline for each day)"
+	args.each do |arg|
+		if (arg == "-h" || arg == "--help")
+			opts[:help] = true
+		elsif (arg == "-e" || arg == "--estimations")
+			opts[:estimations] = true
+		elsif (arg == "-c" || arg == "--condensed")
+			opts[:condensed] = true
+		elsif (arg[0] == "-")
+			puts "Error: invalid option '#{arg}'."
+			puts "Try --help for help."
+			exit
+		end
+	end
+
+	opts
 end
 
-path = ARGV.last
-Trollop::die "Git repo path must be specified" unless path && File.directory?(path)
+def get_repo(path)
+	if (!path)
+		puts "Error: Git repo path must be specified."
+		puts "Usage:"
+		puts "        ./clockout.rb [options] <path to git repo>"
+    else
+    	begin
+    		return Grit::Repo.new(path)
+    	rescue Exception => e
+    		if e.class == Grit::NoSuchPathError
+    			puts "Error: Path '#{path}' could not be found."
+    		else
+    			puts "Error: '#{path}' is not a Git repository."
+    		end
+    	end
+    end
+end
 
-repo = Grit::Repo.new(ARGV.last)
+$opts = parse_options(ARGV)
+if $opts[:help]
+	banner = <<-EOS
+Clockout v0.1
+Usage:
+        ./clockout.rb [options] <path to git repo>
+
+Options:
+    --estimations, -e:   Show estimations made for first commit of each block
+      --condensed, -c:   Condense output (don't show the timeline for each day)
+           --help, -h:   Show this message
+EOS
+	puts banner
+	exit
+end
+
+path = ARGV[0] || nil
+
+repo = get_repo(path) || exit
+	
 commits = repo.commits('master', 500)
 commits.reverse!
 
