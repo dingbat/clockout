@@ -47,7 +47,7 @@ def seperate_into_blocks(repo, commits)
 		c.date = commit.committed_date
 		c.message = commit.message.gsub("\n",' ')
 		c.diffs = diffs(commit)
-		c.sha = commit.id
+		c.sha = commit.id[0..7]
 
 		if block.size > 0
 			time_since_last = (block.last.date - commit.committed_date).abs/60
@@ -71,6 +71,13 @@ def seperate_into_blocks(repo, commits)
 	# Now go through each block's first commit and estimate the time it took
 	blocks.each do |block|
 		first = block.first
+
+        # See if they were overriden in the .clock file
+        if ($opts[first.sha.to_sym])
+            first.minutes = $opts[first.sha.to_sym].to_i
+            next
+        end
+
 		if ($opts[:ignore_initial] && block == blocks.first) || total_diffs == 0
 			first.minutes = 0
 		else
@@ -152,7 +159,7 @@ def print_estimations(blocks)
 	blocks.each do |block|
 		first = block.first
 		date = first.date.strftime('%b %e')+": "
-		sha = first.sha[0..7]+" "
+		sha = first.sha+" "
 		if first.minutes < 60
 			time = "#{first.minutes.round(0)} min"
 		else
