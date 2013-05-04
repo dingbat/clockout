@@ -12,27 +12,25 @@ With this data you can print out pretty charts and tables (pretty as CLI graphic
 Usage
 --------
 
-To run:
-
+To install:
 
 ```
-./clockout.rb [options] <path to git repo>
+$ gem install clockout
+```
+
+To run:
+
+```
+$ cd path/to/git/repo
+$ clock [options]
 ```
 
 Options:
 
 ```
-    --estimations, -e:   Show estimations made for first commit of each block
-      --condensed, -c:   Condense output (don't show the timeline for each day)
-      --see-clock, -s:   See options specified in .clock file
-           --help, -h:   Show this message
-```
-
-Dependencies
---------
-
-Grit. To install,
-
-```
-sudo gem install grit
+	--estimations, -e:   Show estimations made for first commit of each block
+	  --condensed, -c:   Condense output (don't show the timeline for each day)
+ --generate-clock, -g:   Generate .clock file
+	  --see-clock, -s:   See options specified in .clock file
+	       --help, -h:   Show this message
 ```

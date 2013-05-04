@@ -1,0 +1,136 @@
+#!/usr/bin/env ruby
+
+require 'clockout'
+
+HELP_BANNER = <<-EOS
+Clockout v0.1
+Usage:
+		$ clock [options]
+
+Options:
+	--estimations, -e:   Show estimations made for first commit of each block
+	  --condensed, -c:   Condense output (don't show the timeline for each day)
+ --generate-clock, -g:   Generate .clock file
+	  --see-clock, -s:   See options specified in .clock file
+	       --help, -h:   Show this message
+EOS
+
+TEMPLATE_CLOCKFILE = <<-EOF
+; Ignore initial commit, if it's just template/boilerplate
+;   Type:     BOOL
+;   Default:  0
+
+;ignore_initial = 1
+
+; Minimum time between blocks of commits
+;   Type:     Int (in minutes)
+;   Default:  120
+;
+; Default is 120, so if you think some commits took you more than 2 hours, you should shorten this
+
+;time_cutoff = 90
+
+
+;; Time-estimation options for each first commit of a timeblock
+
+; Diffs of files matched by this regex will be included in commit time estimation
+;   Type:     Regex (Ruby)
+;   Default:  /.*/ (matches everything)
+;
+; With some projects, there are diffs to binaries, images, files modified by an IDE, etc,
+; that you don't want to report as your own work.
+; Below is an example regex that will only calculate changes made to files with those extensions
+
+;my_files = /\.(m|h|rb|txt)$/
+
+; Diffs of files matched by this regex will NOT be included in commit time estimation
+;   Type:     Regex (Ruby)
+;   Default:  <nothing>
+;
+; You also have the option of defining a negative regex match, to ignore certain files.
+; For example, if you added an external library or something, you should ignore those additions
+
+;not_my_files = /(ThisFile\.cpp | SomeOtherClass\.*)/
+
+; Completion time overrides for commit estimations
+;   Type:     Int (in minutes)
+;
+; Override times for specific commits here.
+
+;7deec149 = 25
+;5a6105e6 = 15
+;4325de58 = 120
+EOF
+
+def parse_options(args)
+    opts = {}
+
+	args.each do |arg|
+		if (arg == "-h" || arg == "--help")
+			opts[:help] = true
+        elsif (arg == "-s" || arg == "--see-clock")
+            opts[:see_clock] = true
+		elsif (arg == "-e" || arg == "--estimations")
+			opts[:estimations] = true
+		elsif (arg == "-c" || arg == "--condensed")
+			opts[:condensed] = true
+		elsif (arg == "-g" || arg == "--generate-clock")
+			opts[:generate_clock] = true
+		elsif (arg[0] == "-")
+			puts "Error: invalid option '#{arg}'."
+			puts "Try --help for help."
+			exit
+		end
+	end
+
+	opts
+end
+
+path = Dir.pwd
+
+# Default options
+opts = {time_cutoff:120, my_files:"/.*/"}
+opts.merge!(parse_options(ARGV))
+
+if opts[:generate_clock]
+	clock_path = path+"/.clock"
+	if (File.exists?(clock_path))
+		puts "#{colorize("Error:", RED)} .clock file already exists, ignoring --generate-clock option.\n"
+	else
+		File.open(clock_path, "w") do |file|
+			file.write(TEMPLATE_CLOCKFILE)
+		end
+		puts "Generated .clock file at #{clock_path}.\n"
+	end
+end
+
+clock = Clockout.new(path, opts)
+
+if opts[:see_clock]
+    if !clock.clock_opts
+        puts "No .clock file found. Run `clock -g` to generate one."
+    else
+    	if clock.clock_opts.size == 0
+    		puts "No clock options."
+    	else
+	        puts "Clock options:"
+	        clock.clock_opts.each do |k, v|
+	            key = k[0..19]
+	            puts "    #{key}:#{' '*(20-key.length)}#{v}"
+	        end
+	    end
+    end
+    exit
+end
+
+if opts[:help]
+    puts HELP_BANNER
+    exit
+end
+
+if (opts[:estimations])
+	clock.print_estimations
+else
+	clock.print_chart
+end
+
