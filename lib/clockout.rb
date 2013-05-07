@@ -1,4 +1,5 @@
 require 'grit'
+require 'time'
 
 class Commit
 	attr_accessor :message, :minutes, :date, :diffs, :sha
@@ -16,7 +17,7 @@ class Clockout
 	COLS = 80
 	DAY_FORMAT = '%B %e, %Y'
 
-	attr_accessor :blocks, :time_per_day, :clock_opts
+	attr_accessor :blocks
 
 	def diffs(commit)
 		plus, minus = 0, 0
@@ -43,6 +44,7 @@ class Clockout
 
 		total_diffs, total_mins = 0, 0
 
+		prev = nil
 		commits.each do |commit|
 
 			c = Commit.new
@@ -52,7 +54,17 @@ class Clockout
 			c.sha = commit.id[0..7]
 
 			if block.size > 0
-				time_since_last = (block.last.date - commit.committed_date).abs/60
+				last_date = block.last.date
+
+				@clockins.each do |clockin|
+					if clockin > last_date && clockin < c.date
+						last_date = clockin
+						@clockins.delete(clockin)
+						break
+					end
+				end
+
+				time_since_last = (last_date - commit.committed_date).abs/60
 				
 				if (time_since_last > $opts[:time_cutoff])
 					blocks << block
@@ -82,22 +94,21 @@ class Clockout
 			elsif ($opts[:ignore_initial] && block == blocks.first) || total_diffs == 0
 				first.minutes = 0
 			else
-				# Underestimate by a factor of 0.9
-				first.minutes = 0.9*first.diffs*(1.0*total_mins/total_diffs)
+				first.minutes = $opts[:estimation_factor]*first.diffs*(1.0*total_mins/total_diffs)
 			end
 
 	        @time_per_day[first.date.strftime(DAY_FORMAT)] += first.minutes
 		end
 	end
 
-	def print_chart
-		cols = ($opts[:condensed] ? 30 : COLS)
+	def print_chart(condensed)
+		cols = (condensed ? 30 : COLS)
 		total_sum = 0
 		current_day = nil
 		@blocks.each do |block|
 			date = block.first.date.strftime(DAY_FORMAT)
 			if date != current_day
-				puts if (!$opts[:condensed])
+				puts if (!condensed)
 
 				current_day = date
 
@@ -111,7 +122,7 @@ class Clockout
 				puts
 			end
 
-			print_timeline(block) if (!$opts[:condensed])
+			print_timeline(block) if (!condensed)
 		end
 
 		puts " "*(cols-10) + colorize("-"*10,MAGENTA)
@@ -184,15 +195,16 @@ class Clockout
 	    begin
 	        return Grit::Repo.new(path)
 	    rescue Exception => e
+	    	print colorize("Error: ", RED)
 	        if e.class == Grit::NoSuchPathError
-	            puts "Error: Path '#{path}' could not be found."
+	            puts "Path '#{path}' could not be found."
 	        else
-	            puts "Error: '#{path}' is not a Git repository."
+	            puts "'#{path}' is not a Git repository."
 	        end
 	    end
 	end
 
-	def parse_clockfile(file)
+	def self.parse_clockfile(file)
 	    return nil if !File.exists?(file)
 
 	    opts = {}
@@ -200,42 +212,78 @@ class Clockout
 	    line_num = 0
 	    File.foreach(file) do |line|
 	        line_num += 1
+	        #Strip whitespace
 	        line.strip!
+	        #Strip comments
+	        line = line.split(";",2)[0]
 
-	        next if line[0] == ";" || line.length == 0
+	        next if !line || line.length == 0
 
 	        sides = line.split("=",2)
 
-	        if sides.length != 2
-	            puts "Error: bad syntax on line #{line_num} of .clock file:"
-	            puts "    #{line}"
-	            puts ""
-	            puts "Line must be of form:"
-	            puts "    KEY = VALUE"
+	        clock_split = sides[0].split(" ",2)
+	        if (clock_split[0] == "in" || clock_split[0] == "out")
 
-	            exit
-	        end
+	        	begin
+	        		date = Time.parse(clock_split[1])
+	        	rescue Exception => e
+	        		puts "#{colorize("Error:", RED)} invalid date for '#{clock_split[0]}' on line #{line_num} of .clock file:"
+	        		puts "    #{line}"
 
-	        left = sides[0].strip
-	        right = sides[1].strip
+	        		exit
+	        	end
 
-	        if left == "ignore_initial"
-	            right = (right != "0")
-	        elsif left == "time_cutoff"
-	            right = right.to_i
-	        end
+	        	key = (clock_split[0] == "out") ? :clockouts : :clockins
 
-	        opts[left.to_sym] = right
+        		opts[key] ||= []
+        		opts[key] << date
+	        else
+		        if sides.length != 2
+		            puts "#{colorize("Error:", RED)} bad syntax on line #{line_num} of .clock file:"
+		            puts "    #{line}"
+		            puts ""
+		            puts "Line must be of form:"
+		            puts "    KEY = VALUE"
+
+		            exit
+		        end
+
+		        left = sides[0].strip
+		        right = sides[1].strip
+
+		        if left == "ignore_initial"
+		            right = (right != "0")
+		        elsif left == "time_cutoff"
+		            right = right.to_i
+		        elsif left == "estimation_factor"
+		        	right = right.to_f
+		        end
+
+		        opts[left.to_sym] = right
+		    end
 	    end
 
 	    opts 
 	end
 
-	def initialize(path, options)
-		$opts = options
+	def self.clock_path(path)
+		path+"/.clock"
+	end
 
-	    @clock_opts = parse_clockfile(path+"/.clock")
-	    $opts.merge!(@clock_opts) if @clock_opts
+	def initialize(path)
+		# Default options
+		$opts = {time_cutoff:120, my_files:"/.*/", estimation_factor:0.9}
+
+		# Parse .clock options
+	    clock_opts = Clockout.parse_clockfile(Clockout.clock_path(path))
+
+	    if clock_opts
+		    @clockins = clock_opts[:clockins] || []
+		    @clockouts = clock_opts[:clockouts] || []
+
+			# Merge with .clock override options
+		    $opts.merge!(clock_opts)
+		end
 
 		repo = get_repo(path) || exit
 

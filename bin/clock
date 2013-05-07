@@ -5,14 +5,14 @@ require 'clockout'
 HELP_BANNER = <<-EOS
 Clockout v0.1
 Usage:
-		$ clock [options]
+        $ clock [options]
 
 Options:
-	--estimations, -e:   Show estimations made for first commit of each block
-	  --condensed, -c:   Condense output (don't show the timeline for each day)
- --generate-clock, -g:   Generate .clock file
-	  --see-clock, -s:   See options specified in .clock file
-	       --help, -h:   Show this message
+      --estimations, -e:   Show estimations made for first commit of each block
+        --condensed, -c:   Condense output (don't show the timeline for each day)
+   --generate-clock, -g:   Generate .clock file
+        --see-clock, -s:   See options specified in .clock file
+             --help, -h:   Show this message
 EOS
 
 TEMPLATE_CLOCKFILE = <<-EOF
@@ -76,8 +76,8 @@ def parse_options(args)
 			opts[:condensed] = true
 		elsif (arg == "-g" || arg == "--generate-clock")
 			opts[:generate_clock] = true
-		elsif (arg[0] == "-")
-			puts "Error: invalid option '#{arg}'."
+		else
+			puts "#{colorize("Error:", RED)} invalid option '#{arg}'."
 			puts "Try --help for help."
 			exit
 		end
@@ -86,51 +86,70 @@ def parse_options(args)
 	opts
 end
 
+def generate_clock_file(path)
+    clock_path = Clockout.clock_path(path)
+    if (File.exists?(clock_path))
+        false
+    else
+        File.open(clock_path, "w") do |file|
+            file.write(TEMPLATE_CLOCKFILE)
+        end
+        true
+    end
+end
+
 path = Dir.pwd
 
-# Default options
-opts = {time_cutoff:120, my_files:"/.*/"}
-opts.merge!(parse_options(ARGV))
+if (ARGV[0] == "in" || ARGV[0] == "out")
+    # Generate a clock file if one doesn't already exist
+    generate_clock_file(path)
 
-if opts[:generate_clock]
-	clock_path = path+"/.clock"
-	if (File.exists?(clock_path))
-		puts "#{colorize("Error:", RED)} .clock file already exists, ignoring --generate-clock option.\n"
-	else
-		File.open(clock_path, "w") do |file|
-			file.write(TEMPLATE_CLOCKFILE)
-		end
-		puts "Generated .clock file at #{clock_path}.\n"
-	end
-end
-
-clock = Clockout.new(path, opts)
-
-if opts[:see_clock]
-    if !clock.clock_opts
-        puts "No .clock file found. Run `clock -g` to generate one."
-    else
-    	if clock.clock_opts.size == 0
-    		puts "No clock options."
-    	else
-	        puts "Clock options:"
-	        clock.clock_opts.each do |k, v|
-	            key = k[0..19]
-	            puts "    #{key}:#{' '*(20-key.length)}#{v}"
-	        end
-	    end
+    # Append "in <current date>" or "out <current date>" to the clockfile
+    File.open(Clockout.clock_path(path), "a") do |file|
+        file.puts ARGV[0] + " " + Time.new.to_s
     end
-    exit
-end
-
-if opts[:help]
-    puts HELP_BANNER
-    exit
-end
-
-if (opts[:estimations])
-	clock.print_estimations
 else
-	clock.print_chart
-end
+    opts = parse_options(ARGV)
 
+    if opts[:generate_clock]
+        if generate_clock_file(path)
+            puts "Generated .clock file at #{Clockout.clock_path(path)}.\n"
+        else
+            puts "#{colorize("Error:", RED)} .clock file already exists for this repo.\n"
+        end
+        exit
+    end
+
+    if opts[:help]
+        puts HELP_BANNER
+        exit
+    end
+
+    if opts[:see_clock]
+        clock_opts = Clockout.parse_clockfile(Clockout.clock_path(path))
+        if !clock_opts
+            puts "No .clock file found. Run `clock -g` to generate one."
+        else
+            if clock_opts.size == 0
+                puts "No clock options."
+            else
+                puts "Clock options:"
+                clock_opts.each do |k, v|
+                    key = k[0..19]
+                    # display the number of clockouts/ins instead of all the dates
+                    v = v.length if k == :clockins || k == :clockouts
+                    puts "    #{key}:#{' '*(20-key.length)}#{v}"
+                end
+            end
+        end
+        exit
+    end
+
+    clock = Clockout.new(path)
+
+    if (opts[:estimations])
+        clock.print_estimations
+    else
+        clock.print_chart(opts[:condensed])
+    end
+end

@@ -8,6 +8,6 @@ Gem::Specification.new do |s|
 	s.homepage					= 'http://rubygems.org/gems/clockout'
 			
 	s.files						= ['lib/clockout.rb']
-	s.executables				<< 'clock'
+	s.executables				= ['clock']
 	s.add_runtime_dependency	"grit", [">= 0"]
 end
