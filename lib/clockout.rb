@@ -53,24 +53,24 @@ class Clockout
 			c.diffs = diffs(commit)
 			c.sha = commit.id[0..7]
 
+			# See if this commit was overriden in the .clock file
+	        overrides = $opts[:overrides]
+	        overrides.each do |k, v|
+        		if commit.id.start_with? k
+        			c.minutes = v
+        			break
+        		end
+        	end
+
 			if block.size > 0
 				last_date = block.last.date
-
-				@clockins.each do |clockin|
-					if clockin > last_date && clockin < c.date
-						last_date = clockin
-						@clockins.delete(clockin)
-						break
-					end
-				end
-
 				time_since_last = (last_date - commit.committed_date).abs/60
 				
 				if (time_since_last > $opts[:time_cutoff])
 					blocks << block
 					block = []
 				else
-					c.minutes = time_since_last
+					c.minutes = time_since_last if !c.minutes
 
 	                @time_per_day[c.date.strftime(DAY_FORMAT)] += c.minutes
 
@@ -88,13 +88,14 @@ class Clockout
 		blocks.each do |block|
 			first = block.first
 
-	        # See if they were overriden in the .clock file
-	        if ($opts[first.sha.to_sym])
-	            first.minutes = $opts[first.sha.to_sym].to_i
-			elsif ($opts[:ignore_initial] && block == blocks.first) || total_diffs == 0
-				first.minutes = 0
-			else
-				first.minutes = $opts[:estimation_factor]*first.diffs*(1.0*total_mins/total_diffs)
+        	# If minutes haven't been already set, try estimating it
+        	if (!first.minutes)
+				if ($opts[:ignore_initial] && block == blocks.first) || total_diffs == 0
+					first.minutes = 0
+				else
+					diff_min_ratio = (1.0*total_mins/total_diffs)
+					first.minutes = $opts[:estimation_factor]*first.diffs*diff_min_ratio
+				end
 			end
 
 	        @time_per_day[first.date.strftime(DAY_FORMAT)] += first.minutes
@@ -248,18 +249,24 @@ class Clockout
 		            exit
 		        end
 
-		        left = sides[0].strip
-		        right = sides[1].strip
+		        key = sides[0].strip
+		        val = sides[1].strip
+		        existing = $opts[key.to_sym]
 
-		        if left == "ignore_initial"
-		            right = (right != "0")
-		        elsif left == "time_cutoff"
-		            right = right.to_i
-		        elsif left == "estimation_factor"
-		        	right = right.to_f
+		        if !existing
+		        	# Must be hashes, since not pre-defined with defaults
+		        	opts[:overrides] ||= {}
+		        	opts[:overrides][key] = val.to_i
+		        else
+			        if existing.class == TrueClass || existing.class == FalseClass
+			        	val = (val == "1") || (val.downcase == "true")
+			        elsif existing.class == Fixnum
+			        	val = val.to_i
+			        elsif existing.class == Float
+			        	val = val.to_f
+			        end
+			        opts[key.to_sym] = val
 		        end
-
-		        opts[left.to_sym] = right
 		    end
 	    end
 
@@ -272,7 +279,7 @@ class Clockout
 
 	def initialize(path)
 		# Default options
-		$opts = {time_cutoff:120, my_files:"/.*/", estimation_factor:0.9}
+		$opts = {time_cutoff:120, my_files:"/.*/", not_my_files:"", estimation_factor:0.9, ignore_initial: false}
 
 		# Parse .clock options
 	    clock_opts = Clockout.parse_clockfile(Clockout.clock_path(path))

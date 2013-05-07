@@ -3,7 +3,7 @@
 require 'clockout'
 
 HELP_BANNER = <<-EOS
-Clockout v0.1
+Clockout v0.2
 Usage:
         $ clock [options]
 
@@ -41,7 +41,7 @@ TEMPLATE_CLOCKFILE = <<-EOF
 ; that you don't want to report as your own work.
 ; Below is an example regex that will only calculate changes made to files with those extensions
 
-;my_files = /\.(m|h|rb|txt)$/
+;my_files = /\\.(m|h|rb|txt)$/
 
 ; Diffs of files matched by this regex will NOT be included in commit time estimation
 ;   Type:     Regex (Ruby)
@@ -50,7 +50,7 @@ TEMPLATE_CLOCKFILE = <<-EOF
 ; You also have the option of defining a negative regex match, to ignore certain files.
 ; For example, if you added an external library or something, you should ignore those additions
 
-;not_my_files = /(ThisFile\.cpp | SomeOtherClass\.*)/
+;not_my_files = /(ThisFile\\.cpp | SomeOtherClass\\.*)/
 
 ; Completion time overrides for commit estimations
 ;   Type:     Int (in minutes)
@@ -110,6 +110,11 @@ if (ARGV[0] == "in" || ARGV[0] == "out")
     end
 else
     opts = parse_options(ARGV)
+    
+    if opts[:help]
+        puts HELP_BANNER
+        exit
+    end
 
     if opts[:generate_clock]
         if generate_clock_file(path)
@@ -117,11 +122,6 @@ else
         else
             puts "#{colorize("Error:", RED)} .clock file already exists for this repo.\n"
         end
-        exit
-    end
-
-    if opts[:help]
-        puts HELP_BANNER
         exit
     end
 
@@ -135,10 +135,13 @@ else
             else
                 puts "Clock options:"
                 clock_opts.each do |k, v|
-                    key = k[0..19]
-                    # display the number of clockouts/ins instead of all the dates
+                    space = 23
+                    width = space-6
+                    key = k[0..width]
+                    key += "..." if k.length > width
+                    # For clockins/outs, display the number of them instead of all the dates
                     v = v.length if k == :clockins || k == :clockouts
-                    puts "    #{key}:#{' '*(20-key.length)}#{v}"
+                    puts "    #{key}:#{' '*(space-key.length)}#{v}"
                 end
             end
         end
