@@ -1,5 +1,6 @@
 require 'grit'
 require 'time'
+require 'yaml'
 
 class Commit
 	attr_accessor :message, :minutes, :date, :diffs, :sha
@@ -53,14 +54,14 @@ class Clockout
 			c.diffs = diffs(commit)
 			c.sha = commit.id[0..7]
 
-			# See if this commit was overriden in the .clock file
+			# See if this commit was overriden in the config file
 	        overrides = $opts[:overrides]
 	        overrides.each do |k, v|
         		if commit.id.start_with? k
         			c.minutes = v
         			break
         		end
-        	end
+        	end if overrides
 
 			if block.size > 0
 				last_date = block.last.date
@@ -208,87 +209,28 @@ class Clockout
 	def self.parse_clockfile(file)
 	    return nil if !File.exists?(file)
 
-	    opts = {}
+	    opts = YAML.load_file(file)
 
-	    line_num = 0
-	    File.foreach(file) do |line|
-	        line_num += 1
-	        #Strip whitespace
-	        line.strip!
-	        #Strip comments
-	        line = line.split(";",2)[0]
-
-	        next if !line || line.length == 0
-
-	        sides = line.split("=",2)
-
-	        clock_split = sides[0].split(" ",2)
-	        if (clock_split[0] == "in" || clock_split[0] == "out")
-
-	        	begin
-	        		date = Time.parse(clock_split[1])
-	        	rescue Exception => e
-	        		puts "#{colorize("Error:", RED)} invalid date for '#{clock_split[0]}' on line #{line_num} of .clock file:"
-	        		puts "    #{line}"
-
-	        		exit
-	        	end
-
-	        	key = (clock_split[0] == "out") ? :clockouts : :clockins
-
-        		opts[key] ||= []
-        		opts[key] << date
-	        else
-		        if sides.length != 2
-		            puts "#{colorize("Error:", RED)} bad syntax on line #{line_num} of .clock file:"
-		            puts "    #{line}"
-		            puts ""
-		            puts "Line must be of form:"
-		            puts "    KEY = VALUE"
-
-		            exit
-		        end
-
-		        key = sides[0].strip
-		        val = sides[1].strip
-		        existing = $opts[key.to_sym]
-
-		        if !existing
-		        	# Must be hashes, since not pre-defined with defaults
-		        	opts[:overrides] ||= {}
-		        	opts[:overrides][key] = val.to_i
-		        else
-			        if existing.class == TrueClass || existing.class == FalseClass
-			        	val = (val == "1") || (val.downcase == "true")
-			        elsif existing.class == Fixnum
-			        	val = val.to_i
-			        elsif existing.class == Float
-			        	val = val.to_f
-			        end
-			        opts[key.to_sym] = val
-		        end
-		    end
-	    end
-
-	    opts 
+	    # Symbolizes keys
+	    Hash[opts.map{|k,v| [k.to_sym, v]}]
 	end
 
 	def self.clock_path(path)
-		path+"/.clock"
+		path+"/clock.yaml"
 	end
 
 	def initialize(path)
 		# Default options
-		$opts = {time_cutoff:120, my_files:"/.*/", not_my_files:"", estimation_factor:0.9, ignore_initial: false}
+		$opts = {time_cutoff:120, my_files:"/.*/", estimation_factor:1.0}
 
-		# Parse .clock options
+		# Parse config options
 	    clock_opts = Clockout.parse_clockfile(Clockout.clock_path(path))
 
 	    if clock_opts
 		    @clockins = clock_opts[:clockins] || []
 		    @clockouts = clock_opts[:clockouts] || []
 
-			# Merge with .clock override options
+			# Merge with config override options
 		    $opts.merge!(clock_opts)
 		end
 

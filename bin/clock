@@ -10,56 +10,65 @@ Usage:
 Options:
       --estimations, -e:   Show estimations made for first commit of each block
         --condensed, -c:   Condense output (don't show the timeline for each day)
-   --generate-clock, -g:   Generate .clock file
-        --see-clock, -s:   See options specified in .clock file
+   --generate-clock, -g:   Generate config file
+        --see-clock, -s:   See options specified in config file
              --help, -h:   Show this message
 EOS
 
 TEMPLATE_CLOCKFILE = <<-EOF
-; Ignore initial commit, if it's just template/boilerplate
-;   Type:     BOOL
-;   Default:  0
+### General options ###
 
-;ignore_initial = 1
+# Ignore initial commit, if it's just template/boilerplate
+# - Default: false
 
-; Minimum time between blocks of commits
-;   Type:     Int (in minutes)
-;   Default:  120
-;
-; Default is 120, so if you think some commits took you more than 2 hours, you should shorten this
+#ignore_initial: true
 
-;time_cutoff = 90
+# Minimum time between blocks of commits
+# - Default: 120 min (change if you think some commits took you more than 2 hours)
+
+#time_cutoff: 90
 
 
-;; Time-estimation options for each first commit of a timeblock
+### Time-estimation options for each first commit of a timeblock ###
 
-; Diffs of files matched by this regex will be included in commit time estimation
-;   Type:     Regex (Ruby)
-;   Default:  /.*/ (matches everything)
-;
-; With some projects, there are diffs to binaries, images, files modified by an IDE, etc,
-; that you don't want to report as your own work.
-; Below is an example regex that will only calculate changes made to files with those extensions
+# Diffs of files matched by this regex will be included in commit time estimation.
+# With some projects, there are diffs to binaries, images, files modified by an IDE, etc,
+# that you don't want to report as your own work. Below is an example regex that will only
+# calculate changes made to files with those extensions
+# - Default:  /.*/ (matches everything)
 
-;my_files = /\\.(m|h|rb|txt)$/
+#my_files: /\\.(m|h|txt)$/
 
-; Diffs of files matched by this regex will NOT be included in commit time estimation
-;   Type:     Regex (Ruby)
-;   Default:  <nothing>
-;
-; You also have the option of defining a negative regex match, to ignore certain files.
-; For example, if you added an external library or something, you should ignore those additions
+# Diffs of files matched by this regex will NOT be included in commit time estimation
+# You also have the option of defining a negative regex match, to ignore certain files.
+# For example, if you added an external library or something, you should ignore it
+# - Default:  <nothing>
 
-;not_my_files = /(ThisFile\\.cpp | SomeOtherClass\\.*)/
+#not_my_files: /SomeThirdPartyLibrary\\.*$/
 
-; Completion time overrides for commit estimations
-;   Type:     Int (in minutes)
-;
-; Override times for specific commits here.
+# Estimation factor
+# Use the -e option to see the estimations Clockout makes, and tweak them using this 
+# value as necessary.
+# - Default: 1.0
 
-;7deec149 = 25
-;5a6105e6 = 15
-;4325de58 = 120
+#estimation_factor: 0.9
+
+# Put any override times for specific commits here (minutes).
+# (You can use a SHA1 hash of any length)
+
+#overrides:
+# 48f63a7b: 90
+# d354a31a: 30
+
+
+### Clock-ins/-outs ###
+
+# Do not modify these directly; use the `clock in` and `clock out` commands.
+# See the readme for more details.
+
+out:
+in:
+
 EOF
 
 def parse_options(args)
@@ -94,6 +103,7 @@ def generate_clock_file(path)
         File.open(clock_path, "w") do |file|
             file.write(TEMPLATE_CLOCKFILE)
         end
+        puts "Generated config file at #{clock_path}."
         true
     end
 end
@@ -104,9 +114,22 @@ if (ARGV[0] == "in" || ARGV[0] == "out")
     # Generate a clock file if one doesn't already exist
     generate_clock_file(path)
 
-    # Append "in <current date>" or "out <current date>" to the clockfile
-    File.open(Clockout.clock_path(path), "a") do |file|
-        file.puts ARGV[0] + " " + Time.new.to_s
+    # Add the in/out date to the file
+    buf = ""
+    mod = false
+    seek_line = ARGV[0] + ":"
+    time_line = "- " + Time.new.to_s + "\n"
+    File.foreach(Clockout.clock_path(path)) do |line|
+        buf += line
+        if line.strip == seek_line
+            mod = true
+            buf += time_line
+        end
+    end
+    File.open(Clockout.clock_path(path), "w") do |file|
+        file << buf
+        # Add in: or out:, along with the time if it doesn't exist
+        file << "\n#{seek_line}\n#{time_line}" if !mod
     end
 else
     opts = parse_options(ARGV)
@@ -117,10 +140,8 @@ else
     end
 
     if opts[:generate_clock]
-        if generate_clock_file(path)
-            puts "Generated .clock file at #{Clockout.clock_path(path)}.\n"
-        else
-            puts "#{colorize("Error:", RED)} .clock file already exists for this repo.\n"
+        if !generate_clock_file(path)
+            puts "#{colorize("Error:", RED)} config file already exists for this repo.\n"
         end
         exit
     end
@@ -128,7 +149,7 @@ else
     if opts[:see_clock]
         clock_opts = Clockout.parse_clockfile(Clockout.clock_path(path))
         if !clock_opts
-            puts "No .clock file found. Run `clock -g` to generate one."
+            puts "No config file found (clock.yaml). Run `clock -g` to generate one."
         else
             if clock_opts.size == 0
                 puts "No clock options."
