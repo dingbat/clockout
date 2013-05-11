@@ -6,12 +6,15 @@ class Commit
 	attr_accessor :message, :minutes, :date, :diffs, :sha
 end
 
-RED = 31
-YELLOW = 33
-MAGENTA = 35
-LIGHT_BLUE = 94
-def colorize(str, color)
-    "\e[0;#{color};49m#{str}\e[0m"
+class String
+	def colorize(color)
+    	"\e[0;#{color};49m#{self}\e[0m"
+	end
+
+	def red() colorize(31) end
+	def yellow() colorize(33) end
+	def magenta() colorize(35) end
+	def light_blue() colorize(94) end
 end
 
 class Clockout
@@ -118,24 +121,24 @@ class Clockout
 				total_sum += sum
 
 				sum_str = "#{(sum/60.0).round(2)} hrs"
-				print colorize(date,MAGENTA)
-				print colorize("."*(cols - date.length - sum_str.length),MAGENTA)
-				print colorize(sum_str,RED)
+				print date.magenta
+				print ("."*(cols - date.length - sum_str.length)).magenta
+				print sum_str.red
 				puts
 			end
 
 			print_timeline(block) if (!condensed)
 		end
 
-		puts " "*(cols-10) + colorize("-"*10,MAGENTA)
+		puts " "*(cols-10) + ("-"*10).magenta
 		sum_str = "#{(total_sum/60.0).round(2)} hrs"
-		puts " "*(cols-sum_str.length) + colorize(sum_str,RED)
+		puts " "*(cols-sum_str.length) + sum_str.red
 	end
 
 	def print_timeline(block)
 		# subtract from the time it took for first commit
 		time = (block.first.date - block.first.minutes*60).strftime('%l:%M %p')+":  "
-		print colorize(time,YELLOW)
+		print time.yellow
 
 		char_count = time.length
 
@@ -157,7 +160,7 @@ class Clockout
 
 			char_count += add
 
-			print c_mins+colorize(seperator,RED)
+			print c_mins+seperator.red
 		end
 		puts
 	end
@@ -174,8 +177,8 @@ class Clockout
 				time = "#{(first.minutes/60.0).round(2)} hrs"
 			end
 
-			print colorize(date,YELLOW)
-			print colorize(sha,RED)
+			print date.yellow
+			print sha.red
 
 			cutoff = COLS-time.length-date.length-6-sha.length
 			message = first.message[0..cutoff]
@@ -183,21 +186,21 @@ class Clockout
 			print message
 
 			print " "*(COLS-message.length-time.length-date.length-sha.length)
-			puts colorize(time, LIGHT_BLUE)
+			puts time.light_blue
 
 			sum += first.minutes
 		end
 
-		puts " "*(COLS-10) + colorize("-"*10,LIGHT_BLUE)
+		puts " "*(COLS-10) + ("-"*10).light_blue
 		sum_str = "#{(sum/60.0).round(2)} hrs"
-		puts " "*(COLS-sum_str.length) + colorize(sum_str, LIGHT_BLUE)
+		puts " "*(COLS-sum_str.length) + sum_str.light_blue
 	end
 
 	def get_repo(path)
 	    begin
 	        return Grit::Repo.new(path)
 	    rescue Exception => e
-	    	print colorize("Error: ", RED)
+	    	print "Error: ".red
 	        if e.class == Grit::NoSuchPathError
 	            puts "Path '#{path}' could not be found."
 	        else

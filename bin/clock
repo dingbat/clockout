@@ -86,7 +86,7 @@ def parse_options(args)
 		elsif (arg == "-g" || arg == "--generate-clock")
 			opts[:generate_clock] = true
 		else
-			puts "#{colorize("Error:", RED)} invalid option '#{arg}'."
+			puts "#{"Error:".red} invalid option '#{arg}'."
 			puts "Try --help for help."
 			exit
 		end
@@ -141,7 +141,7 @@ else
 
     if opts[:generate_clock]
         if !generate_clock_file(path)
-            puts "#{colorize("Error:", RED)} config file already exists for this repo.\n"
+            puts "#{"Error:".red} config file already exists for this repo.\n"
         end
         exit
     end
