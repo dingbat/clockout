@@ -52,8 +52,8 @@ TEMPLATE_CLOCKFILE = <<-EOF
 
 #estimation_factor: 0.9
 
-# Put any override times for specific commits here (minutes).
-# (You can use SHA1 hashes of any length)
+# Put any override times for specific commits here (minutes). (You can use SHA1 hashes of any length)
+# Note: keep a space before each hash for the YAML to parse properly.
 
 #overrides:
 # 48f63a7b: 90
@@ -127,7 +127,7 @@ if (ARGV[0] == "in" || ARGV[0] == "out")
             buf += time_line
         end
     end
-    File.open(Clockout.clock_path, "w") do |file|
+    File.open(clock_path, "w") do |file|
         file << buf
         # Add in: or out:, along with the time if it doesn't exist
         file << "\n#{seek_line}\n#{time_line}" if !mod

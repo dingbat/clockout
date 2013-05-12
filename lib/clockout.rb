@@ -3,7 +3,7 @@ require 'time'
 require 'yaml'
 
 class Commit
-	attr_accessor :message, :minutes, :date, :diffs, :sha
+	attr_accessor :message, :minutes, :date, :diffs, :sha, :clocked_in, :clocked_out
 end
 
 def puts_error(str)
@@ -97,7 +97,7 @@ class Clockout
 
 		total_diffs, total_mins = 0, 0
 
-		prev = nil
+		last_date = nil
 		commits.each do |commit|
 
 			c = Commit.new
@@ -115,8 +115,15 @@ class Clockout
         		end
         	end if overrides
 
-			if block.size > 0
-				last_date = block.last.date
+        	clockins = $opts[:in]
+        	clockins.each do |cin|
+        		if (!last_date || cin > last_date) && cin < c.date
+        			last_date = cin
+        			c.clocked_in = true
+        		end
+        	end if clockins
+
+			if last_date
 				time_since_last = (last_date - commit.committed_date).abs/60
 				
 				if (time_since_last > $opts[:time_cutoff])
@@ -131,6 +138,8 @@ class Clockout
 					total_mins += c.minutes
 				end
 			end
+
+			last_date = c.date
 
 			block << c
 		end
@@ -188,6 +197,9 @@ class Clockout
 
 		block.each do |commit|
 			c_mins = commit.minutes.as_time(nil, "m", "h")
+			c_mins = "*#{c_mins}" if commit.clocked_in
+			c_mins += "*" if commit.clocked_out
+			
 			seperator = " | "
 		
 			add = c_mins.length+seperator.length
@@ -279,12 +291,11 @@ class Clockout
 	    clock_opts = Clockout.parse_clockfile(Clockout.clock_path(root_path))
 
 	    if clock_opts
-		    @clockins = clock_opts[:clockins] || []
-		    @clockouts = clock_opts[:clockouts] || []
-
 			# Merge with config override options
 		    $opts.merge!(clock_opts)
 		end
+
+		p $opts
 
 		commits = repo.commits('master', 500)
 		commits.reverse!
