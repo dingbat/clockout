@@ -31,6 +31,5 @@ Options:
     --estimations, -e:   Show estimations made for first commit of each block
       --condensed, -c:   Condense output (don't show the timeline for each day)
  --generate-clock, -g:   Generate config file
-      --see-clock, -s:   See options specified in config file
            --help, -h:   Show this message
 ```

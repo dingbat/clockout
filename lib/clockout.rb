@@ -6,6 +6,42 @@ class Commit
 	attr_accessor :message, :minutes, :date, :diffs, :sha
 end
 
+def puts_error(str)
+	puts "Error: ".red + str
+end
+
+def align(strings, cols = COLS, sep = " ")
+	ret = ""
+	size = 0
+	strings.each do |string, method|
+		ultimate = (string == strings.keys[-1])
+		penultimate = (string == strings.keys[-2])
+
+		out = string
+		out += " " unless (ultimate || penultimate)
+
+		if ultimate
+			# Add seperator
+			cols_left = cols - size - out.length
+			ret += sep*cols_left if cols_left > 0
+		elsif penultimate
+			last = strings.keys.last.length
+			max_len = cols - size - last - 1
+			if string.length > max_len
+				# Truncate
+				out = string[0..max_len-5].strip + "... "
+			end
+		end
+
+		# Apply color & print
+		ret += method.to_proc.call(out)
+
+		size += out.length
+	end
+
+	ret
+end
+
 class String
 	def colorize(color)
     	"\e[0;#{color};49m#{self}\e[0m"
@@ -34,41 +70,6 @@ class Clockout
 
 	attr_accessor :blocks
 
-	def align(strings, cols = COLS, sep = " ")
-		ret = ""
-		size = 0
-		strings.each do |string, method|
-			ultimate = (string == strings.keys[-1])
-			penultimate = (string == strings.keys[-2])
-
-			out = string
-			out += " " unless (ultimate || penultimate)
-
-			if ultimate
-
-				# Last one, so print seperator
-				cols_left = cols - size - out.length
-				ret += sep*cols_left if cols_left > 0
-
-			elsif penultimate
-
-				# Second-to-last, truncate
-				last = strings.keys.last.length
-				max_len = cols - size - last - 1
-				if string.length > max_len
-					out = string[0..max_len-5].strip + "... "
-				end
-			end
-
-			# Apply color & print
-			ret += method.to_proc.call(out)
-
-			size += out.length
-		end
-
-		ret
-	end
-
 	def diffs(commit)
 		plus, minus = 0, 0
 
@@ -89,6 +90,8 @@ class Clockout
 	end
 
 	def seperate_into_blocks(repo, commits)
+		return [] if commits.empty?
+
 		blocks = []
 		block = []
 
@@ -218,15 +221,27 @@ class Clockout
 		puts align({sum.as_time(:hours) => :light_blue})
 	end
 
-	def get_repo(path)
+	def Clockout.get_repo(path, original_path = nil)
 	    begin
-	        return Grit::Repo.new(path)
+	        return Grit::Repo.new(path), path
 	    rescue Exception => e
-	    	print "Error: ".red
 	        if e.class == Grit::NoSuchPathError
-	            puts "Path '#{path}' could not be found."
+	        	puts_error "Path '#{path}' could not be found."
+	        	return nil
 	        else
-	            puts "'#{path}' is not a Git repository."
+	        	# Must have drilled down to /
+	        	if (path.length <= 1)
+		        	puts_error "'#{original_path}' is not a Git repository."
+		        	return nil
+		        end
+
+	        	# Could be that we're in a directory inside the repo
+	        	# Strip off last directory
+	        	one_up = path
+	        	while ((one_up = one_up[0..-2])[-1] != '/') do end
+
+	        	# Recursively try one level higher
+	        	return get_repo(one_up[0..-2], path)
 	        end
 	    end
 	end
@@ -234,7 +249,12 @@ class Clockout
 	def self.parse_clockfile(file)
 	    return nil if !File.exists?(file)
 
-	    opts = YAML.load_file(file)
+	    begin
+	    	opts = YAML.load_file(file)
+	    rescue Exception => e
+	    	puts_error e.to_s
+	    	exit
+	    end
 
 	    # Symbolizes keys
 	    Hash[opts.map{|k,v| [k.to_sym, v]}]
@@ -244,12 +264,19 @@ class Clockout
 		path+"/clock.yaml"
 	end
 
+	def self.root_path(path)
+		repo, root_path = get_repo(path)
+		root_path
+	end
+
 	def initialize(path)
+		repo, root_path = Clockout.get_repo(path) || exit
+
 		# Default options
 		$opts = {time_cutoff:120, my_files:"/.*/", estimation_factor:1.0}
 
 		# Parse config options
-	    clock_opts = Clockout.parse_clockfile(Clockout.clock_path(path))
+	    clock_opts = Clockout.parse_clockfile(Clockout.clock_path(root_path))
 
 	    if clock_opts
 		    @clockins = clock_opts[:clockins] || []
@@ -258,8 +285,6 @@ class Clockout
 			# Merge with config override options
 		    $opts.merge!(clock_opts)
 		end
-
-		repo = get_repo(path) || exit
 
 		commits = repo.commits('master', 500)
 		commits.reverse!
