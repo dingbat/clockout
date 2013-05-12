@@ -73,23 +73,23 @@ EOF
 def parse_options(args)
     opts = {}
 
-	args.each do |arg|
-		if (arg == "-h" || arg == "--help")
-			opts[:help] = true
-		elsif (arg == "-e" || arg == "--estimations")
-			opts[:estimations] = true
-		elsif (arg == "-c" || arg == "--condensed")
-			opts[:condensed] = true
-		elsif (arg == "-g" || arg == "--generate-clock")
-			opts[:generate_clock] = true
-		else
-			puts_error "invalid option '#{arg}'."
-			puts "Try --help for help."
-			exit
-		end
-	end
+    args.each do |arg|
+        if (arg == "-h" || arg == "--help")
+            opts[:help] = true
+        elsif (arg == "-e" || arg == "--estimations")
+            opts[:estimations] = true
+        elsif (arg == "-c" || arg == "--condensed")
+            opts[:condensed] = true
+        elsif (arg == "-g" || arg == "--generate-clock")
+            opts[:generate_clock] = true
+        else
+            puts_error "invalid option '#{arg}'."
+            puts "Try --help for help."
+            exit
+        end
+    end
 
-	opts
+    opts
 end
 
 def clock_path(path = nil)
