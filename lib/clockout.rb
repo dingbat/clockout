@@ -6,10 +6,11 @@ COLS = 80
 DAY_FORMAT = '%B %e, %Y'
 
 class Commit
-    attr_accessor :message, :minutes, :date, :diffs, :sha, :clocked_in, :clocked_out, :addition, :overriden
+    attr_accessor :message, :minutes, :date, :diffs, :sha, :clocked_in, :clocked_out, :addition, :overriden, :author, :estimated
     def initialize(commit = nil)
         @addition = 0
         if commit
+            @author = commit.author.email
             @date = commit.committed_date
             @message = commit.message.gsub("\n",' ')
             @sha = commit.id
@@ -18,11 +19,12 @@ class Commit
 end
 
 class Clock
-    attr_accessor :in, :out, :date
-    def initialize(type, date)
+    attr_accessor :in, :out, :date, :author
+    def initialize(type, date, auth)
         @in = (type == :in)
         @out = (type == :out)
         @date = date
+        @author = auth
     end
 end
 
@@ -104,13 +106,14 @@ class Clockout
         plus+minus/2
     end
 
-    def prepare_data(commits_in)
-        clockins = $opts[:in] || []
-        clockouts = $opts[:out] || []
+    def prepare_data(commits_in, author)
+        clockins = $opts[:in] || {}
+        clockouts = $opts[:out] || {}
 
         # Convert clock-in/-outs into Clock objs & commits into Commit objs
-        clockins.map! { |date| Clock.new(:in, date) }
-        clockouts.map! { |date| Clock.new(:out, date) }
+        clocks = []
+        clockins.each { |c| clocks << Clock.new(:in, c.first[0], c.first[1]) }
+        clockouts.each { |c| clocks << Clock.new(:out, c.first[0], c.first[1]) }
         commits_in.map! do |commit| 
             c = Commit.new(commit) 
             c.diffs = diffs(commit)
@@ -118,7 +121,10 @@ class Clockout
         end
 
         # Merge & sort everything by date
-        data = (commits_in + clockins + clockouts).sort { |a,b| a.date <=> b.date }
+        data = (commits_in + clocks).sort { |a,b| a.date <=> b.date }
+
+        # If author is specified, delete everything not by that author
+        data.delete_if { |c| c.author != author } if author
 
         blocks = []
         total_diffs, total_mins = 0, 0
@@ -219,17 +225,21 @@ class Clockout
         end
 
         diffs_per_min = (1.0*total_diffs/total_mins)
-        if !diffs_per_min.nan? && !diffs_per_min.infinite?
-            # Do estimation for all `nil` minutes.
-            blocks.each do |block|
-                first = block.first
-                if !first.minutes
+
+        # Do estimation for all `nil` minutes.
+        blocks.each do |block|
+            first = block.first
+            if !first.minutes
+                first.estimated = true
+                if diffs_per_min.nan? || diffs_per_min.infinite?
+                    first.minutes = 0
+                else
                     first.minutes = first.diffs/diffs_per_min * $opts[:estimation_factor] + first.addition
-                    add_time_to_day.call(first.minutes, first.date)
                 end
+                add_time_to_day.call(first.minutes, first.date)
             end
         end
-
+        
         blocks
     end
 
@@ -240,7 +250,7 @@ class Clockout
         @blocks.each do |block|
             date = block.first.date.strftime(DAY_FORMAT)
             if date != current_day
-                puts if (!condensed)
+                puts if (!condensed && current_day)
 
                 current_day = date
 
@@ -288,19 +298,27 @@ class Clockout
 
     def print_estimations
         sum = 0
+        estimations = []
         @blocks.each do |block|
-            first = block.first
-            date = first.date.strftime('%b %e')+":"
-            sha = first.sha[0..7]
-            time = first.minutes.as_time
-
-            puts align({date => :yellow, sha => :red, first.message => :to_s, time => :light_blue})
-
-            sum += first.minutes
+            estimations << block.first if block.first.estimated
         end
 
-        puts align({"-"*10 => :light_blue})
-        puts align({sum.as_time(:hours) => :light_blue})
+        if estimations.empty?
+            puts "No estimations made."
+        else
+            estimations.each do |c|
+                date = c.date.strftime('%b %e')+":"
+                sha = c.sha[0..7]
+                time = c.minutes.as_time
+
+                puts align({date => :yellow, sha => :red, c.message => :to_s, time => :light_blue})
+
+                sum += c.minutes
+            end
+
+            puts align({"-"*10 => :light_blue})
+            puts align({sum.as_time(:hours) => :light_blue})
+        end
     end
 
     def self.get_repo(path, original_path = nil)
@@ -351,7 +369,7 @@ class Clockout
         root_path
     end
 
-    def initialize(path)
+    def initialize(path, author = nil)
         repo, root_path = Clockout.get_repo(path) || exit
 
         # Default options
@@ -367,6 +385,6 @@ class Clockout
         commits.reverse!
 
         @time_per_day = Hash.new(0)
-        @blocks = prepare_data(commits)
+        @blocks = prepare_data(commits, author)
     end
 end

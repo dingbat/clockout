@@ -20,6 +20,7 @@ Options:
     --estimations, -e:   Show estimations made for first commit of each block
       --condensed, -c:   Condense output (don't show the timeline for each day)
 --generate-config, -g:   Generate config file
+ --user, -u (<email>):   Use commits from the current Git user (or with specified email)
            --help, -h:   Show this message
 ```
 

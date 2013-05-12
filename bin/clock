@@ -5,16 +5,17 @@ require 'clockout'
 HELP_BANNER = <<-EOS
 Clockout v0.3
 See hours:
-            $ clock [options]
+    $ clock [options]
 
 Options:
       --estimations, -e:   Show estimations made for first commit of each block
         --condensed, -c:   Condense output (don't show the timeline for each day)
   --generate-config, -g:   Generate config file
+   --user, -u (<email>):   Use commits from the current Git user (or with specified email)
              --help, -h:   Show this message
 
-            $ clock in     Clock-in (when you start working, preceding a commit)
-            $ clock out    Clock-out (after you keep working overtime after a commit)
+    $ clock in     Clock-in (when you start working, preceding a commit)
+    $ clock out    Clock-out (after you keep working overtime after a commit)
 EOS
 
 TEMPLATE_CLOCKFILE = <<-EOF
@@ -76,7 +77,9 @@ EOF
 def parse_options(args)
     opts = {}
 
-    args.each do |arg|
+    i = 0
+    while i < args.length
+        arg = args[i]
         if (arg == "-h" || arg == "--help")
             opts[:help] = true
         elsif (arg == "-e" || arg == "--estimations")
@@ -85,11 +88,20 @@ def parse_options(args)
             opts[:condensed] = true
         elsif (arg == "-g" || arg == "--generate-config")
             opts[:generate_config] = true
+        elsif (arg == "-u" || arg == "--user")
+            next_arg = args[i+1]
+            if next_arg && next_arg[0] != '-'
+                opts[:user] = next_arg
+                i += 1
+            else
+                opts[:user] = true
+            end
         else
             puts_error "invalid option '#{arg}'."
             puts "Try --help for help."
             exit
         end
+        i += 1
     end
 
     opts
@@ -112,6 +124,10 @@ def generate_clock_file(path)
     end
 end
 
+def current_git_user
+    `git config user.email`.strip
+end
+
 path = Dir.pwd
 
 if (ARGV[0] == "in" || ARGV[0] == "out")
@@ -122,7 +138,7 @@ if (ARGV[0] == "in" || ARGV[0] == "out")
     buf = ""
     mod = false
     seek_line = ARGV[0] + ":"
-    time_line = "- " + Time.new.to_s + "\n"
+    time_line =  '- ' + Time.new.to_s + ': ' + current_git_user + "\n"
     File.foreach(clock_path) do |line|
         buf += line
         if line.strip == seek_line
@@ -150,7 +166,16 @@ else
         exit
     end
 
-    clock = Clockout.new(path)
+    if opts[:user]
+        if opts[:user] == true
+            user = current_git_user
+        else
+            user = opts[:user]
+        end
+        puts "Showing hours for #{user}"
+    end
+    
+    clock = Clockout.new(path, user)
 
     if (opts[:estimations])
         clock.print_estimations
