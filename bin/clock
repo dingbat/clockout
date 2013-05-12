@@ -3,15 +3,18 @@
 require 'clockout'
 
 HELP_BANNER = <<-EOS
-Clockout v0.2
-Usage:
-        $ clock [options]
+Clockout v0.3
+See hours:
+            $ clock [options]
 
 Options:
       --estimations, -e:   Show estimations made for first commit of each block
         --condensed, -c:   Condense output (don't show the timeline for each day)
    --generate-clock, -g:   Generate config file
              --help, -h:   Show this message
+
+            $ clock in     Clock-in (when you start working, preceding a commit)
+            $ clock out    Clock-out (after you keep working overtime after a commit)
 EOS
 
 TEMPLATE_CLOCKFILE = <<-EOF
@@ -43,7 +46,7 @@ TEMPLATE_CLOCKFILE = <<-EOF
 # For example, if you added an external library or something, you should ignore it
 # - Default:  <nothing>
 
-#not_my_files: /SomeThirdPartyLibrary\\.*$/
+#not_my_files: /SomeThirdPartyLibrary/
 
 # Estimation factor
 # Use the -e option to see the estimations Clockout makes, and tweak them using this 

@@ -2,8 +2,28 @@ require 'grit'
 require 'time'
 require 'yaml'
 
+COLS = 80
+DAY_FORMAT = '%B %e, %Y'
+
 class Commit
-    attr_accessor :message, :minutes, :date, :diffs, :sha, :clocked_in, :clocked_out
+    attr_accessor :message, :minutes, :date, :diffs, :sha, :clocked_in, :clocked_out, :addition, :overriden
+    def initialize(commit = nil)
+        @addition = 0
+        if commit
+            @date = commit.committed_date
+            @message = commit.message.gsub("\n",' ')
+            @sha = commit.id
+        end
+    end
+end
+
+class Clock
+    attr_accessor :in, :out, :date
+    def initialize(type, date)
+        @in = (type == :in)
+        @out = (type == :out)
+        @date = date
+    end
 end
 
 def puts_error(str)
@@ -65,11 +85,6 @@ class Numeric
 end
 
 class Clockout
-    COLS = 80
-    DAY_FORMAT = '%B %e, %Y'
-
-    attr_accessor :blocks
-
     def diffs(commit)
         plus, minus = 0, 0
 
@@ -89,94 +104,133 @@ class Clockout
         plus+minus/2
     end
 
-    def seperate_into_blocks(repo, commits)
-        return [] if commits.empty?
+    def prepare_data(commits_in)
+        clockins = $opts[:in] || []
+        clockouts = $opts[:out] || []
+
+        # Convert clock-in/-outs into Clock objs & commits into Commit objs
+        clockins.map! { |date| Clock.new(:in, date) }
+        clockouts.map! { |date| Clock.new(:out, date) }
+        commits_in.map! do |commit| 
+            c = Commit.new(commit) 
+            c.diffs = diffs(commit)
+            c
+        end
+
+        # Merge & sort everything by date
+        data = (commits_in + clockins + clockouts).sort { |a,b| a.date <=> b.date }
 
         blocks = []
-        block = []
-
         total_diffs, total_mins = 0, 0
 
-        last_date = nil
-        commits.each do |commit|
-            c = Commit.new
-            c.date = commit.committed_date
-            c.message = commit.message.gsub("\n",' ')
-            c.diffs = diffs(commit)
-            c.sha = commit.id[0..7]
-
-            # See if this commit was overriden in the config file
-            overrides = $opts[:overrides]
-            overrides.each do |k, v|
-                if commit.id.start_with? k
-                    c.minutes = v
-                    break
-                end
-            end if overrides
-
-            clockins = $opts[:in]
-            clockins.each do |cin|
-                if (!last_date || cin > last_date) && cin < c.date
-                    last_date = cin
-                    c.clocked_in = true
-                end
-            end if clockins
-
-            if last_date
-                time_since_last = (last_date - commit.committed_date).abs/60
-                
-                if (time_since_last > $opts[:time_cutoff])
-                    blocks << block
-                    block = []
-                else
-                    c.minutes = time_since_last if !c.minutes
-                end
+        add_commit = lambda do |commit|
+            last = blocks.last
+            if !last || (commit.date - last.last.date)/60.0 > $opts[:time_cutoff]
+                blocks << [commit]
+                false
+            else
+                last << commit
+                true
             end
-
-            next_c = commits[commits.index(commit) + 1]
-            clockouts = $opts[:out]
-            latest_out = nil
-            clockouts.each do |cout|
-                if (!next_c || cout < next_c.date) && cout > c.date
-                    latest_out = cout if (!latest_out || cout > latest_out)
-                end
-            end if clockouts
-
-            #TODO: clockin, followed by clockout should count as time!
-
-            if latest_out
-                c.minutes += (latest_out - c.date)/60.0
-                c.clocked_out = true
-            end
-
-            @time_per_day[c.date.strftime(DAY_FORMAT)] += c.minutes
-
-            total_diffs += c.diffs
-            total_mins += c.minutes
-
-            last_date = c.date
-
-            block << c
         end
 
-        blocks << block
+        add_time_to_day = lambda do |time, date|
+            @time_per_day[date.strftime(DAY_FORMAT)] += time
+        end
 
-        # Now go through each block's first commit and estimate the time it took
-        blocks.each do |block|
-            first = block.first
+        # Now go through and coalesce Clocks into Commits, while also splitting into blocks
+        i = 0
+        while i < data.size
+            prev_c = (i == 0) ? nil : data[i-1]
+            next_c = data[i+1]
+            curr_c = data[i]
 
-            # If minutes haven't been already set, try estimating it
-            if (!first.minutes)
-                if ($opts[:ignore_initial] && block == blocks.first) || total_diffs == 0
-                    first.minutes = 0
-                else
-                    diff_min_ratio = (1.0*total_mins/total_diffs)
-                    first.minutes = $opts[:estimation_factor]*first.diffs*diff_min_ratio
+            if curr_c.class == Clock
+                # If next is also a clock and it's the same type, delete this & use that one instead
+                if next_c && next_c.class == Clock && next_c.in == curr_c.in
+                    data.delete_at(i)
+                    next
+                end
+
+                # Clock in doesn't do anything, a commit will pick them up
+                # For a clock out...
+                if curr_c.out && prev_c
+                    # If previous is an IN, delete both and make a new commit
+                    if prev_c.class == Clock && prev_c.in
+                        c = Commit.new
+                        c.date = curr_c.date # date is "commit date", so on clockout
+                        c.minutes = (curr_c.date - prev_c.date)/60.0
+                        c.clocked_in, c.clocked_out = true, true
+
+                        data.insert(i, c)
+                        data.delete(prev_c)
+                        data.delete(curr_c)
+
+                        add_commit.call(c)
+                        add_time_to_day.call(c.minutes, c.date)
+
+                        #i is already incremented (we deleted 2 & added 1)
+                        next
+                    elsif !prev_c.overriden
+                        #Otherwise, append time onto the last commit (if it's time wasn't overriden)
+                        addition = (curr_c.date - prev_c.date)/60.0
+                        if prev_c.minutes
+                            prev_c.minutes += addition
+                            add_time_to_day.call(addition, prev_c.date)
+                        else
+                            # This means it's an estimation commit (first one)
+                            # Mark how much we shoul add after we've estimated
+                            prev_c.addition = addition
+                        end
+                        prev_c.clocked_out = true
+                    end
+                end
+            else
+                # See if this commit was overriden in the config file
+                overrides = $opts[:overrides]
+                overrides.each do |k, v|
+                    if curr_c.sha.start_with? k
+                        curr_c.minutes = v
+                        curr_c.overriden = true
+                        break
+                    end
+                end if overrides
+
+                if !curr_c.overriden && prev_c
+                    curr_c.clocked_in = true if prev_c.class == Clock && prev_c.in
+                    # If it added successfully into a block (or was clocked in), we can calculate based on last commit
+                    if add_commit.call(curr_c) || curr_c.clocked_in
+                        curr_c.minutes = (curr_c.date - prev_c.date)/60.0 # clock or commit, doesn't matter
+                    end
+                    # Otherwise, we'll do an estimation later, once we have more data
+                end
+
+                if curr_c.minutes
+                    add_time_to_day.call(curr_c.minutes, curr_c.date)
+
+                    if curr_c.diffs
+                        total_diffs += curr_c.diffs
+                        total_mins += curr_c.minutes
+                    end
                 end
             end
 
-            @time_per_day[first.date.strftime(DAY_FORMAT)] += first.minutes
+            i += 1
         end
+
+        diffs_per_min = (1.0*total_diffs/total_mins)
+        if !diffs_per_min.nan? && !diffs_per_min.infinite?
+            # Do estimation for all `nil` minutes.
+            blocks.each do |block|
+                first = block.first
+                if !first.minutes
+                    first.minutes = first.diffs/diffs_per_min * $opts[:estimation_factor] + first.addition
+                    add_time_to_day.call(first.minutes, first.date)
+                end
+            end
+        end
+
+        blocks
     end
 
     def print_chart(condensed)
@@ -226,7 +280,8 @@ class Clockout
 
             char_count += add
 
-            print c_mins+seperator.red
+            # Blue for clockin/out commits
+            print c_mins+(commit.message ? seperator.red : seperator.light_blue)
         end
         puts
     end
@@ -236,7 +291,7 @@ class Clockout
         @blocks.each do |block|
             first = block.first
             date = first.date.strftime('%b %e')+":"
-            sha = first.sha
+            sha = first.sha[0..7]
             time = first.minutes.as_time
 
             puts align({date => :yellow, sha => :red, first.message => :to_s, time => :light_blue})
@@ -307,11 +362,11 @@ class Clockout
 
         # Merge with config override options
         $opts.merge!(clock_opts) if clock_opts
-        
+
         commits = repo.commits('master', 500)
         commits.reverse!
 
         @time_per_day = Hash.new(0)
-        @blocks = seperate_into_blocks(repo, commits)
+        @blocks = prepare_data(commits)
     end
 end
