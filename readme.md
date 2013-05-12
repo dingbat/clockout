@@ -2,11 +2,11 @@
 
 You're being paid by the hour, but do you really want to worry about logging your hours? If you're using Git, isn't that already being done for you? Clockout is a tool that analyzes a Git repo and converts your commits into blocks of time worked.
 
-Clockout determines how long each commit took by taking the time interval since the previous one, if it's close enough. With everything added up, Clockout can print out pretty charts and tables (pretty as CLI graphics go) to show your boss, and your git history is the evidence to back it up.
+Clockout determines how long each commit took by taking the time interval since the previous one, if it's close enough. With everything added up, Clockout can print out pretty charts and tables (pretty as CLI graphics go) to show your boss, and your Git history is the evidence to back it up.
 
 To install:
 ```
-$ gem install clockout
+$ [sudo] gem install clockout
 ```
 
 To display hours worked:
@@ -19,7 +19,7 @@ Options:
 ```
     --estimations, -e:   Show estimations made for first commit of each block
       --condensed, -c:   Condense output (don't show the timeline for each day)
- --generate-clock, -g:   Generate config file
+--generate-config, -g:   Generate config file
            --help, -h:   Show this message
 ```
 
@@ -39,8 +39,9 @@ Or, if you're dedicated, Clockout can be a lot more powerful. Right before worki
 ```
 $ clock in
 ```
-at the command line. The current time will be logged in `clock.yaml`, and the time for your next commit will be calculated from there.
-Let's say after committing a feature you spend some time doing QA, or work outside of Git. How to log those hours? You guessed it:
+at the command line. The current time will be logged in `clock.yaml`, and the time for your next commit will be calculated from the clock-in time to the time that you `git commit`. Nothing more.
+
+Let's say you've committed a feature and you're now spending time doing QA, writing emails, or any work outside of Git. How can you log those additional hours? Welp,
 ```
 $ clock out
 ```
