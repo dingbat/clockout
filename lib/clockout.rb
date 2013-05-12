@@ -131,13 +131,29 @@ class Clockout
 					block = []
 				else
 					c.minutes = time_since_last if !c.minutes
-
-	                @time_per_day[c.date.strftime(DAY_FORMAT)] += c.minutes
-
-					total_diffs += c.diffs
-					total_mins += c.minutes
 				end
 			end
+
+			next_c = commits[commits.index(commit) + 1]
+        	clockouts = $opts[:out]
+        	latest_out = nil
+        	clockouts.each do |cout|
+        		if (!next_c || cout < next_c.date) && cout > c.date
+        			latest_out = cout if (!latest_out || cout > latest_out)
+        		end
+        	end if clockouts
+
+        	#TODO: clockin, followed by clockout should count as time!
+
+        	if latest_out
+        		c.minutes += (latest_out - c.date)/60.0
+        		c.clocked_out = true
+			end
+
+            @time_per_day[c.date.strftime(DAY_FORMAT)] += c.minutes
+
+			total_diffs += c.diffs
+			total_mins += c.minutes
 
 			last_date = c.date
 
@@ -199,7 +215,7 @@ class Clockout
 			c_mins = commit.minutes.as_time(nil, "m", "h")
 			c_mins = "*#{c_mins}" if commit.clocked_in
 			c_mins += "*" if commit.clocked_out
-			
+
 			seperator = " | "
 		
 			add = c_mins.length+seperator.length
@@ -290,13 +306,9 @@ class Clockout
 		# Parse config options
 	    clock_opts = Clockout.parse_clockfile(Clockout.clock_path(root_path))
 
-	    if clock_opts
-			# Merge with config override options
-		    $opts.merge!(clock_opts)
-		end
-
-		p $opts
-
+	    # Merge with config override options
+	    $opts.merge!(clock_opts) if clock_opts
+		
 		commits = repo.commits('master', 500)
 		commits.reverse!
 
