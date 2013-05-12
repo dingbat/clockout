@@ -17,6 +17,17 @@ class String
 	def light_blue() colorize(94) end
 end
 
+class Numeric
+	def as_time(type = nil, min_s = " min", hr_s = " hrs")
+		type = (self < 60) ? :minutes : :hours if !type
+		if type == :minutes
+			"#{self.round(0)}#{min_s}"
+		else
+			"#{(self/60.0).round(2)}#{hr_s}"
+		end
+	end
+end
+
 class Clockout
 	COLS = 80
 	DAY_FORMAT = '%B %e, %Y'
@@ -43,9 +54,9 @@ class Clockout
 
 				# Second-to-last, truncate
 				last = strings.keys.last.length
-				max_len = cols - size - last
+				max_len = cols - size - last - 1
 				if string.length > max_len
-					out = string[0..max_len-6].strip + "... "
+					out = string[0..max_len-5].strip + "... "
 				end
 			end
 
@@ -155,18 +166,14 @@ class Clockout
 				sum = @time_per_day[date]
 				total_sum += sum
 
-				sum_str = "#{(sum/60.0).round(2)} hrs"
-
-				puts align({date => :magenta, sum_str => :red}, cols, ".".magenta)
+				puts align({date => :magenta, sum.as_time(:hours) => :red}, cols, ".".magenta)
 			end
 
 			print_timeline(block) if (!condensed)
 		end
 
-		sum_str = "#{(total_sum/60.0).round(2)} hrs"
-
 		puts align({"-"*10 => :magenta}, cols)
-		puts align({sum_str => :red}, cols)
+		puts align({total_sum.as_time(:hours) => :red}, cols)
 	end
 
 	def print_timeline(block)
@@ -177,12 +184,7 @@ class Clockout
 		char_count = time.length
 
 		block.each do |commit|
-			if commit.minutes < 60
-				c_mins = "#{commit.minutes.round(0)}m"
-			else
-				c_mins = "#{(commit.minutes/60.0).round(1)}h"
-			end
-
+			c_mins = commit.minutes.as_time(nil, "m", "h")
 			seperator = " | "
 		
 			add = c_mins.length+seperator.length
@@ -205,21 +207,15 @@ class Clockout
 			first = block.first
 			date = first.date.strftime('%b %e')+":"
 			sha = first.sha
-			if first.minutes < 60
-				time = "#{first.minutes.round(0)} min"
-			else
-				time = "#{(first.minutes/60.0).round(2)} hrs"
-			end
+			time = first.minutes.as_time
 
 			puts align({date => :yellow, sha => :red, first.message => :to_s, time => :light_blue})
 
 			sum += first.minutes
 		end
 
-		sum_str = "#{(sum/60.0).round(2)} hrs"
-
 		puts align({"-"*10 => :light_blue})
-		puts align({sum_str => :light_blue})
+		puts align({sum.as_time(:hours) => :light_blue})
 	end
 
 	def get_repo(path)
