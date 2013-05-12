@@ -23,6 +23,41 @@ class Clockout
 
 	attr_accessor :blocks
 
+	def align(strings, cols = COLS, sep = " ")
+		ret = ""
+		size = 0
+		strings.each do |string, method|
+			ultimate = (string == strings.keys[-1])
+			penultimate = (string == strings.keys[-2])
+
+			out = string
+			out += " " unless (ultimate || penultimate)
+
+			if ultimate
+
+				# Last one, so print seperator
+				cols_left = cols - size - out.length
+				ret += sep*cols_left if cols_left > 0
+
+			elsif penultimate
+
+				# Second-to-last, truncate
+				last = strings.keys.last.length
+				max_len = cols - size - last
+				if string.length > max_len
+					out = string[0..max_len-6].strip + "... "
+				end
+			end
+
+			# Apply color & print
+			ret += method.to_proc.call(out)
+
+			size += out.length
+		end
+
+		ret
+	end
+
 	def diffs(commit)
 		plus, minus = 0, 0
 
@@ -107,7 +142,7 @@ class Clockout
 	end
 
 	def print_chart(condensed)
-		cols = (condensed ? 30 : COLS)
+		cols = condensed ? 30 : COLS
 		total_sum = 0
 		current_day = nil
 		@blocks.each do |block|
@@ -121,18 +156,17 @@ class Clockout
 				total_sum += sum
 
 				sum_str = "#{(sum/60.0).round(2)} hrs"
-				print date.magenta
-				print ("."*(cols - date.length - sum_str.length)).magenta
-				print sum_str.red
-				puts
+
+				puts align({date => :magenta, sum_str => :red}, cols, ".".magenta)
 			end
 
 			print_timeline(block) if (!condensed)
 		end
 
-		puts " "*(cols-10) + ("-"*10).magenta
 		sum_str = "#{(total_sum/60.0).round(2)} hrs"
-		puts " "*(cols-sum_str.length) + sum_str.red
+
+		puts align({"-"*10 => :magenta}, cols)
+		puts align({sum_str => :red}, cols)
 	end
 
 	def print_timeline(block)
@@ -169,31 +203,23 @@ class Clockout
 		sum = 0
 		@blocks.each do |block|
 			first = block.first
-			date = first.date.strftime('%b %e')+": "
-			sha = first.sha+" "
+			date = first.date.strftime('%b %e')+":"
+			sha = first.sha
 			if first.minutes < 60
 				time = "#{first.minutes.round(0)} min"
 			else
 				time = "#{(first.minutes/60.0).round(2)} hrs"
 			end
 
-			print date.yellow
-			print sha.red
-
-			cutoff = COLS-time.length-date.length-6-sha.length
-			message = first.message[0..cutoff]
-			message += "..." if first.message.length > cutoff
-			print message
-
-			print " "*(COLS-message.length-time.length-date.length-sha.length)
-			puts time.light_blue
+			puts align({date => :yellow, sha => :red, first.message => :to_s, time => :light_blue})
 
 			sum += first.minutes
 		end
 
-		puts " "*(COLS-10) + ("-"*10).light_blue
 		sum_str = "#{(sum/60.0).round(2)} hrs"
-		puts " "*(COLS-sum_str.length) + sum_str.light_blue
+
+		puts align({"-"*10 => :light_blue})
+		puts align({sum_str => :light_blue})
 	end
 
 	def get_repo(path)
