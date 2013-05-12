@@ -221,7 +221,7 @@ class Clockout
 		puts align({sum.as_time(:hours) => :light_blue})
 	end
 
-	def Clockout.get_repo(path, original_path = nil)
+	def self.get_repo(path, original_path = nil)
 	    begin
 	        return Grit::Repo.new(path), path
 	    rescue Exception => e
