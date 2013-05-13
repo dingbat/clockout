@@ -17,11 +17,11 @@ $ clock [options if you want]
 
 Options:
 ```
-    --estimations, -e:   Show estimations made for first commit of each block
-      --condensed, -c:   Condense output (don't show the timeline for each day)
---generate-config, -g:   Generate config file
- --user, -u (<email>):   Use commits from the current Git user (or with specified email)
-           --help, -h:   Show this message
+    --estimations, -e:  Show estimations made, if any
+      --condensed, -c:  Condense output (don't show the timeline for each day)
+--generate-config, -g:  Generate config file (clock.yaml)
+ --user, -u (<email>):  Only count current user's commits (or specified user)
+           --help, -h:  Show this message
 ```
 
 ## :clock5: But, but... ##
