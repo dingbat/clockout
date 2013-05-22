@@ -202,7 +202,10 @@ class Clockout
                     end
                 end if overrides
 
-                if !curr_c.overriden && prev_c
+                # If we're ignoring initial & it's initial, set minutes to 0
+                if $opts[:ignore_initial] && !prev_c
+                    curr_c.minutes = 0
+                elsif !curr_c.overriden && prev_c
                     curr_c.clocked_in = true if prev_c.class == Clock && prev_c.in
                     # If it added successfully into a block (or was clocked in), we can calculate based on last commit
                     if add_commit.call(curr_c) || curr_c.clocked_in
