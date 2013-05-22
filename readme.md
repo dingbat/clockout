@@ -4,18 +4,20 @@ You're being paid by the hour, but do you really want to worry about logging you
 
 Clockout determines how long each commit took by taking the time interval since the previous one, if it's close enough. With everything added up, Clockout can print out pretty charts and tables (pretty as CLI graphics go) to show your boss, and your Git history is the evidence to back it up.
 
-To install:
+**Install:**
 ```
 $ [sudo] gem install clockout
 ```
 
-To display hours worked:
+**Display hours worked:**
 ```
 $ cd path/to/git/repo
-$ clock [options if you want]
+$ clock
 ```
 
-Options:
+![clockout](http://danhassin.com/img/clockout2.png)
+
+**Options:**
 ```
     --estimations, -e:  Show estimations made, if any
       --condensed, -c:  Condense output (don't show the timeline for each day)
