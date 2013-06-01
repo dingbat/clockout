@@ -2,7 +2,7 @@
 
 You're being paid by the hour, but do you really want to worry about logging your hours? If you're using Git, isn't that already being done for you? Clockout is a tool that analyzes a Git repo and converts your commits into blocks of time worked.
 
-Clockout determines how long each commit took by taking the time interval since the previous one, if it's close enough. With everything added up, Clockout can print out pretty charts and tables (pretty as CLI graphics go) to show your boss, and your Git history is the evidence to back it up.
+Clockout determines how long each commit took by taking the time interval since the previous one, if it's close enough. With everything added up, Clockout can print out pretty (as far as CLI graphics go) charts and tables to show your boss, and your Git history is the evidence to back it up.
 
 **Install:**
 ```
@@ -22,7 +22,7 @@ $ clock
     --estimations, -e:  Show estimations made, if any
       --condensed, -c:  Condense output (don't show the timeline for each day)
 --generate-config, -g:  Generate config file (clock.yaml)
- --user, -u (<email>):  Only count current user's commits (or specified user)
+ --user, -u (<email>):  Only count current user's commits (or a given user, if specified)
            --help, -h:  Show this message
 ```
 
@@ -32,19 +32,24 @@ What about the first commit in a time block? Say I wake up, work an hour on a fe
 
 ### Estimation ###
 
-Clockout will estimate a time for a pioneer commit based on the size of its diff, using your diffs-per-hour rate on your other commits.
+Clockout will estimate a time for a pioneer commit based on the size of its diff, using the diffs-per-hour rate on your other commits.
 
-But sometimes these estimations can be misleading. (Say you've added a third-party library to your code, which Git says is a lot of additions.) Add a configuration file named `clock.yaml` to the root of your repo to customize a range of options to make your hours estimations more accurate. Run `clock -g` to generate a template file.
+But sometimes these estimations can be misleading. (Say you've added third-party libraries to your code, which Git says is a lot of additions.) Just add a configuration file to the root of your repo to customize a range of options and make your hours estimations more accurate. Run the following from your repo to generate a template file:
+```
+$ clock -g
+```
 
 ### Clock-in, clock-out ###
 
-Or, if you're dedicated, Clockout can be a lot more powerful. Right before working, simply run
+Or, if you're dedicated, Clockout can be a lot more powerful. Right before working, simply run,
 ```
 $ clock in
 ```
-at the command line. The current time will be logged in `clock.yaml`, and the time for your next commit will be calculated from the clock-in time to the time that you `git commit`. Nothing more.
+from your repo's directory. The current time will be logged in `clock.yaml`, and the time for your next commit will be calculated from the clock-in time to the time that you `git commit`. Nothing more.
 
 Let's say you've committed a feature and you're now spending time doing QA, writing emails, or any work outside of Git. How can you log those additional hours? Welp,
 ```
 $ clock out
 ```
+
+They work nicely together too, if you're doing work without committing anything.

@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
     s.name                      = 'clockout'
-    s.version                   = '0.3.1'
+    s.version                   = '0.3.2'
     s.summary                   = 'Clock your hours worked using Git'
     s.description               = 'An sort of extension to Git to support clocking hours worked on a project.'
     s.authors                   = ['Dan Hassin']
