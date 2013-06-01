@@ -7,7 +7,7 @@ Gem::Specification.new do |s|
     s.email                     = ['danhassin@mac.com']
     s.homepage                  = 'http://rubygems.org/gems/clockout'
 
-    s.files                     = ['lib/clockout.rb']
+    s.files                     = ['lib/clock.rb', 'lib/clockout.rb', 'lib/commit.rb', 'lib/printer.rb']
     s.executables               = ['clock']
     
     s.add_runtime_dependency        "grit", [">= 0"]

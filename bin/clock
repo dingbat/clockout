@@ -177,10 +177,11 @@ else
     end
     
     clock = Clockout.new(path, user)
+    printer = Printer.new(clock)
 
     if (opts[:estimations])
-        clock.print_estimations
+        printer.print_estimations
     else
-        clock.print_chart(opts[:condensed])
+        printer.print_chart(opts[:condensed])
     end
 end
