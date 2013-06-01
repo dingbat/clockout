@@ -9,5 +9,7 @@ Gem::Specification.new do |s|
 
     s.files                     = ['lib/clockout.rb']
     s.executables               = ['clock']
-    s.add_runtime_dependency    "grit", [">= 0"]
+    
+    s.add_runtime_dependency        "grit", [">= 0"]
+    s.add_development_dependency    "rspec", [">= 0"]
 end
