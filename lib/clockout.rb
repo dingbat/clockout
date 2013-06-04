@@ -1,10 +1,8 @@
 require 'grit'
-require 'time'
 require 'yaml'
 
-require "printer"
-require "clock"
-require "commit"
+require 'printer'
+require 'record'
 
 COLS = 80
 DAY_FORMAT = '%B %e, %Y'
@@ -12,29 +10,36 @@ DAY_FORMAT = '%B %e, %Y'
 class Clockout
     attr_accessor :blocks, :time_per_day
 
-    def prepare_data(commits_in, author)
-        clockins = $opts[:in] || {}
-        clockouts = $opts[:out] || {}
-
-        # Convert clock-in/-outs into Clock objs & commits into Commit objs
-        clocks = []
-        clockins.each { |c| clocks << Clock.new(:in, c.first[0], c.first[1]) }
-        clockouts.each { |c| clocks << Clock.new(:out, c.first[0], c.first[1]) }
-        commits_in.map! do |commit| 
+    def commits_to_records(grit_commits)
+        my_files = eval($opts[:my_files])
+        not_my_files = eval($opts[:not_my_files] || "")
+        grit_commits.map do |commit| 
             c = Commit.new(commit) 
-            my_files = eval($opts[:my_files])
-            not_my_files = eval($opts[:not_my_files] || "")
-
             c.calculate_diffs(my_files, not_my_files)
             c
         end
+    end
 
-        # Merge & sort everything by date
-        data = (commits_in + clocks).sort { |a,b| a.date <=> b.date }
+    def clocks_to_records(clocks, in_out)
+        clocks.map do |c| 
+            Clock.new(in_out, c.first[0], c.first[1])
+        end
+    end
 
-        # If author is specified, delete everything not by that author
-        data.delete_if { |c| c.author != author } if author
+    def try_overriding_record(record)
+        overrides = $opts[:overrides]
+        overrides.each do |k, v|
+            if record.sha.start_with? k
+                record.minutes = v
+                record.overriden = true
+                return true
+            end
+        end if overrides
 
+        false
+    end
+
+    def run(data)
         blocks = []
         total_diffs, total_mins = 0, 0
 
@@ -102,25 +107,18 @@ class Clockout
                 end
             else
                 # See if this commit was overriden in the config file
-                overrides = $opts[:overrides]
-                overrides.each do |k, v|
-                    if curr_c.sha.start_with? k
-                        curr_c.minutes = v
-                        curr_c.overriden = true
-                        break
+                if !try_overriding_record(curr_c)
+                    # Otherwise, if we're ignoring initial & it's initial, set minutes to 0
+                    if $opts[:ignore_initial] && !prev_c
+                        curr_c.minutes = 0
+                    else
+                        curr_c.clocked_in = true if prev_c && prev_c.class == Clock && prev_c.in
+                        # If it added successfully into a block (or was clocked in), we can calculate based on last commit
+                        if add_commit.call(curr_c) || curr_c.clocked_in
+                            curr_c.minutes = (curr_c.date - prev_c.date)/60.0 # clock or commit, doesn't matter
+                        end
+                        # Otherwise, we'll do an estimation later, once we have more data
                     end
-                end if overrides
-
-                # If we're ignoring initial & it's initial, set minutes to 0
-                if $opts[:ignore_initial] && !prev_c
-                    curr_c.minutes = 0
-                elsif !curr_c.overriden && prev_c
-                    curr_c.clocked_in = true if prev_c.class == Clock && prev_c.in
-                    # If it added successfully into a block (or was clocked in), we can calculate based on last commit
-                    if add_commit.call(curr_c) || curr_c.clocked_in
-                        curr_c.minutes = (curr_c.date - prev_c.date)/60.0 # clock or commit, doesn't matter
-                    end
-                    # Otherwise, we'll do an estimation later, once we have more data
                 end
 
                 if curr_c.minutes
@@ -153,6 +151,23 @@ class Clockout
         end
         
         blocks
+    end
+
+    def prepare_blocks(commits_in, author)
+        clockins = $opts[:in] || {}
+        clockouts = $opts[:out] || {}
+
+        # Convert clock-in/-outs into Clock objs & commits into Commit objs
+        clocks = clocks_to_records(clockins, :in) + clocks_to_records(clockouts, :out)
+        commits = commits_to_records(commits_in)
+
+        # Merge & sort everything by date
+        data = (commits + clocks).sort { |a,b| a.date <=> b.date }
+
+        # If author is specified, delete everything not by that author
+        data.delete_if { |c| c.author != author } if author
+
+        @blocks = run(data)
     end
 
     def self.get_repo(path, original_path = nil)
@@ -203,22 +218,25 @@ class Clockout
         root_path
     end
 
-    def initialize(path, author = nil)
-        repo, root_path = Clockout.get_repo(path) || exit
+    def initialize(path = nil, author = nil)
+        @time_per_day = Hash.new(0)
 
         # Default options
         $opts = {time_cutoff:120, my_files:"/.*/", estimation_factor:1.0}
 
-        # Parse config options
-        clock_opts = Clockout.parse_clockfile(Clockout.clock_path(root_path))
+        if path
+            repo, root_path = Clockout.get_repo(path) || exit
 
-        # Merge with config override options
-        $opts.merge!(clock_opts) if clock_opts
+            # Parse config options
+            clock_opts = Clockout.parse_clockfile(Clockout.clock_path(root_path))
 
-        commits = repo.commits('master', 500)
-        commits.reverse!
+            # Merge with config override options
+            $opts.merge!(clock_opts) if clock_opts
 
-        @time_per_day = Hash.new(0)
-        @blocks = prepare_data(commits, author)
+            commits = repo.commits('master', 500)
+            commits.reverse!
+    
+            prepare_blocks(commits, author)
+        end
     end
 end
