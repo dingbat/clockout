@@ -45,7 +45,8 @@ class Clockout
 
         add_commit = lambda do |commit|
             last = blocks.last
-            if !last || (commit.date - last.last.date)/60.0 > $opts[:time_cutoff]
+            mins = (last && last.last.minutes) ? last.last.minutes*60 : 0
+            if !last || (commit.date - (last.last.date + mins))/60.0 > $opts[:time_cutoff]
                 blocks << [commit]
                 false
             else
