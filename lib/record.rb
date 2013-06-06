@@ -10,8 +10,9 @@ class Commit < Record
     # Whether it's been padded by a clock in/out
     attr_accessor :clocked_in, :clocked_out
     
-    def initialize(commit = nil)
+    def initialize(commit = nil, date = nil)
         @addition = 0
+        @date = date
         if commit
             @author = commit.author.email
             @date = commit.committed_date
