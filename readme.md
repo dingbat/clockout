@@ -21,7 +21,7 @@ $ clock
 ```
     --estimations, -e:  Show estimations made, if any
       --condensed, -c:  Condense output (don't show the timeline for each day)
---generate-config, -g:  Generate config file (clock.yaml)
+--generate-config, -g:  Generate config file (clock.yml)
  --user, -u (<email>):  Only count current user's commits (or a given user, if specified)
            --help, -h:  Show this message
 ```
@@ -45,7 +45,7 @@ Or, if you're dedicated, Clockout can be a lot more powerful. Right before worki
 ```
 $ clock in
 ```
-from your repo's directory. The current time will be logged in `clock.yaml`, and the time for your next commit will be calculated from the clock-in time to the time that you `git commit`. Nothing more.
+from your repo's directory. The current time will be logged in `clock.yml`, and the time for your next commit will be calculated from the clock-in time to the time that you `git commit`. Nothing more.
 
 Let's say you've committed a feature and you're now spending time doing QA, writing emails, or any work outside of Git. How can you log those additional hours? Welp,
 ```

@@ -10,7 +10,7 @@ See hours:
 Options:
     --estimations, -e:  Show estimations made, if any
       --condensed, -c:  Condense output (don't show the timeline for each day)
---generate-config, -g:  Generate config file (clock.yaml)
+--generate-config, -g:  Generate config file (clock.yml)
  --user, -u (<email>):  Only count current user's commits (or specified user)
            --help, -h:  Show this message
 

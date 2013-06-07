@@ -211,7 +211,7 @@ class Clockout
     end
 
     def self.clock_path(path)
-        path+"/clock.yaml"
+        path+"/clock.yml"
     end
 
     def self.root_path(path)
