@@ -25,6 +25,12 @@ $ clock
            --help, -h:  Show this message
 ```
 
+**Generators:**
+```
+    $ clock generate config    Generate config file (clock.yml)
+    $ clock generate hook      Generate a post-commit hook for clockout
+```
+
 ## :clock5: But, but... ##
 
 What about the first commit in a time block? Say I wake up, work an hour on a feature, and commit it. If there was no previous commit that day to use as a reference point, how will that time be logged?
@@ -46,26 +52,26 @@ $ clock in
 ```
 from your repo's directory. The current time will be logged in `clock.yml`, and the time for your next commit will be calculated from the clock-in time to the time that you `git commit`. Nothing more.
 
-Let's say you've committed a feature and you're now spending time doing QA, writing emails, or any work outside of Git. How can you log those additional hours? Welp,
+Let's say you've committed a feature and you're now spending time doing QA, writing emails, or any work outside of Git. How can you log those additional hours?
 ```
 $ clock out
 ```
 
 They work nicely together too, if you're doing work without committing anything.
 
-### Post-commit hook! ###
+## Post-commit hook ##
 
-This is just for fun. Running
+This is just for fun.
 ```
 $ clock generate hook
 ```
-will generate a post-commit hook in your Git repo to call `clock` and print out the length of that commit!
+This generates a post-commit hook for your repo that, on commit, will print out the time it took for that commit!
 
-So now you'll see something like this on commit:
+So now your commits will look something like this:
 ```
-~/projects/github/clockout $ git commit -m"Update help banner & readme for hook"
-[clockout] 16.27 minutes logged
-[master eee3499] Update help banner & readme for hook
+~/projects/github/clockout $ git commit -m"Add post-commit hook generator"
+[clockout] 24.27 minutes logged
+[master 9a806a6] Add post-commit hook generator
  4 files changed, 50 insertions(+), 27 deletions(-)
  rewrite clockout-0.5.gem (71%)
 ```
