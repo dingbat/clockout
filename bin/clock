@@ -81,16 +81,22 @@ def parse_options(args)
     i = 0
     while i < args.length
         arg = args[i]
+        next_arg = args[i+1]
         if (arg == "-h" || arg == "--help")
             opts[:help] = true
         elsif (arg == "-e" || arg == "--estimations")
             opts[:estimations] = true
         elsif (arg == "-c" || arg == "--condensed")
             opts[:condensed] = true
-        elsif (arg == "-g" || arg == "--generate-config")
-            opts[:generate_config] = true
+        elsif (arg == "generate")
+            if next_arg == "hook" || next_arg == "config"
+                i += 1
+                opts[:generate] = next_arg
+            else
+                puts_error "invalid generator '#{next_arg}' (either 'config' or 'hook')."
+                exit
+            end
         elsif (arg == "-u" || arg == "--user")
-            next_arg = args[i+1]
             if next_arg && next_arg[0] != '-'
                 opts[:user] = next_arg
                 i += 1
@@ -153,7 +159,7 @@ if (ARGV[0] == "in" || ARGV[0] == "out")
         file << "\n#{seek_line}\n#{time_line}" if !mod
     end
 elsif (ARGV[0] == "last")
-    print "[clockout] " if (ARGV[1] == "--hook")
+    print "[clockout] ".green if (ARGV[1] == "--hook")
     clock = Clockout.new(path, nil, 2)
     clock.print_last
 else
@@ -164,9 +170,28 @@ else
         exit
     end
 
-    if opts[:generate_config]
+    if opts[:generate] == "config"
         if !generate_clock_file(path) && clock_path
             puts_error "config file already exists for this repo: #{clock_path}"
+        end
+        exit
+    elsif opts[:generate] == "hook"
+        hook_path = Clockout.root_path(path)+"/.git/hooks/post-commit"
+        hook_txt = "#clockout\nclock last --hook"
+        if File.exist? hook_path
+            contents = File.open(hook_path).read
+            if (contents[hook_txt])
+                puts_error "post-commit clock hook already added"
+            else
+                File.open(hook_path, "a") do |file|
+                    file.puts "\n\n#{hook_txt}"
+                end
+            end
+        else
+            File.open(hook_path, "w") do |file|
+                file.puts "#!/bin/sh\n\n#{hook_txt}"
+            end
+            File.chmod(0755, hook_path)
         end
         exit
     end

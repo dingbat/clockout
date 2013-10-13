@@ -173,7 +173,7 @@ class Clockout
 
     def print_last
         last = @blocks.last.last
-        puts "#{last.minutes} minutes logged" if last
+        puts "#{last.minutes.round(2)} minutes logged" if last
     end
 
     def self.get_repo(path, original_path = nil)
