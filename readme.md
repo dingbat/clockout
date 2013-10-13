@@ -21,7 +21,6 @@ $ clock
 ```
     --estimations, -e:  Show estimations made, if any
       --condensed, -c:  Condense output (don't show the timeline for each day)
---generate-config, -g:  Generate config file (clock.yml)
  --user, -u (<email>):  Only count current user's commits (or a given user, if specified)
            --help, -h:  Show this message
 ```
@@ -34,9 +33,9 @@ What about the first commit in a time block? Say I wake up, work an hour on a fe
 
 Clockout will estimate a time for a pioneer commit based on the size of its diff, using the diffs-per-hour rate on your other commits.
 
-But sometimes these estimations can be misleading. (Say you've added third-party libraries to your code, which Git says is a lot of additions.) Just add a configuration file to the root of your repo to customize a range of options and make your hours estimations more accurate. Run the following from your repo to generate a template file:
+But sometimes these estimations can be misleading. (Say you've added third-party libraries to your code, which Git says is a lot of additions.) Just add a configuration file to the root of your repo to customize a range of options and make your hours estimations more accurate. Run the following from your repo to generate a template config file:
 ```
-$ clock -g
+$ clock generate config
 ```
 
 ### Clock-in, clock-out ###
@@ -53,3 +52,21 @@ $ clock out
 ```
 
 They work nicely together too, if you're doing work without committing anything.
+
+### Post-commit hook! ###
+
+This is just for fun. Running
+```
+$ clock generate hook
+```
+will generate a post-commit hook in your Git repo to call `clock` and print out the length of that commit!
+
+So now you'll see something like this on commit:
+```
+~/projects/github/clockout $ git commit -m"Update help banner & readme for hook"
+[clockout] 16.27 minutes logged
+[master eee3499] Update help banner & readme for hook
+ 4 files changed, 50 insertions(+), 27 deletions(-)
+ rewrite clockout-0.5.gem (71%)
+```
+

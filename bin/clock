@@ -10,13 +10,16 @@ See hours:
 Options:
     --estimations, -e:  Show estimations made, if any
       --condensed, -c:  Condense output (don't show the timeline for each day)
---generate-config, -g:  Generate config file (clock.yml)
  --user, -u (<email>):  Only count current user's commits (or specified user)
            --help, -h:  Show this message
 
+Generators:
+    $ clock generate config    Generate config file (clock.yml)
+    $ clock generate hook      Generate a post-commit hook for clockout!
+
 Other:
-    $ clock in     Clock-in (when you start working, preceding a commit)
-    $ clock out    Clock-out (after you've worked overtime following a commit)
+    $ clock in      Clock-in (when you start working, preceding a commit)
+    $ clock out     Clock-out (after you've worked overtime following a commit)
 EOS
 
 TEMPLATE_CLOCKFILE = <<-EOF
@@ -93,7 +96,7 @@ def parse_options(args)
                 i += 1
                 opts[:generate] = next_arg
             else
-                puts_error "invalid generator '#{next_arg}' (either 'config' or 'hook')."
+                puts_error "invalid generator '#{next_arg}' (there's only 'config' and 'hook', see --help)."
                 exit
             end
         elsif (arg == "-u" || arg == "--user")
@@ -170,28 +173,31 @@ else
         exit
     end
 
-    if opts[:generate] == "config"
-        if !generate_clock_file(path) && clock_path
-            puts_error "config file already exists for this repo: #{clock_path}"
-        end
-        exit
-    elsif opts[:generate] == "hook"
-        hook_path = Clockout.root_path(path)+"/.git/hooks/post-commit"
-        hook_txt = "#clockout\nclock last --hook"
-        if File.exist? hook_path
-            contents = File.open(hook_path).read
-            if (contents[hook_txt])
-                puts_error "post-commit clock hook already added"
-            else
-                File.open(hook_path, "a") do |file|
-                    file.puts "\n\n#{hook_txt}"
+    if opts[:generate]
+        root = Clockout.root_path(path)
+        exit if !root
+        if opts[:generate] == "config"
+            if !generate_clock_file(path) && clock_path
+                puts_error "config file already exists for this repo: #{clock_path}"
+            end
+        elsif opts[:generate] == "hook"
+            hook_path = root+"/.git/hooks/post-commit"
+            hook_txt = "#clockout\nclock last --hook"
+            if File.exist? hook_path
+                contents = File.open(hook_path).read
+                if (contents[hook_txt])
+                    puts_error "post-commit clock hook already added"
+                else
+                    File.open(hook_path, "a") do |file|
+                        file.puts "\n\n#{hook_txt}"
+                    end
                 end
+            else
+                File.open(hook_path, "w") do |file|
+                    file.puts "#!/bin/sh\n\n#{hook_txt}"
+                end
+                File.chmod(0755, hook_path)
             end
-        else
-            File.open(hook_path, "w") do |file|
-                file.puts "#!/bin/sh\n\n#{hook_txt}"
-            end
-            File.chmod(0755, hook_path)
         end
         exit
     end

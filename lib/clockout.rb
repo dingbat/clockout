@@ -216,6 +216,7 @@ class Clockout
     end
 
     def self.clock_path(path)
+        return nil if !path
         path+"/clock.yml"
     end
 
