@@ -171,6 +171,11 @@ class Clockout
         @blocks = run(data)
     end
 
+    def print_last
+        last = @blocks.last.last
+        puts "#{last.minutes} minutes logged" if last
+    end
+
     def self.get_repo(path, original_path = nil)
         begin
             return Grit::Repo.new(path), path
@@ -219,7 +224,7 @@ class Clockout
         root_path
     end
 
-    def initialize(path = nil, author = nil)
+    def initialize(path = nil, author = nil, num=500)
         @time_per_day = Hash.new(0)
 
         # Default options
@@ -234,7 +239,7 @@ class Clockout
             # Merge with config override options
             $opts.merge!(clock_opts) if clock_opts
 
-            commits = repo.commits('master', 500)
+            commits = repo.commits('master', num)
             commits.reverse!
     
             prepare_blocks(commits, author)

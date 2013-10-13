@@ -152,6 +152,10 @@ if (ARGV[0] == "in" || ARGV[0] == "out")
         # Add in: or out:, along with the time if it doesn't exist
         file << "\n#{seek_line}\n#{time_line}" if !mod
     end
+elsif (ARGV[0] == "last")
+    print "[clockout] " if (ARGV[1] == "--hook")
+    clock = Clockout.new(path, nil, 2)
+    clock.print_last
 else
     opts = parse_options(ARGV)
     
