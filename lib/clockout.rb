@@ -10,11 +10,12 @@ DAY_FORMAT = '%B %e, %Y'
 class Clockout
     attr_accessor :blocks, :time_per_day
 
-    def commits_to_records(grit_commits)
+    def commits_to_records(grit_commits, commit_stats)
         my_files = eval($opts[:my_files])
         not_my_files = eval($opts[:not_my_files] || "")
-        grit_commits.map do |commit| 
-            c = Commit.new(commit) 
+        grit_commits.each_with_index.map do |commit, i| 
+            c = Commit.new(commit)
+            c.stats = commit_stats[i][1]
             c.calculate_diffs(my_files, not_my_files)
             c
         end
@@ -154,13 +155,13 @@ class Clockout
         blocks
     end
 
-    def prepare_blocks(commits_in, author)
+    def prepare_blocks(commits_in, commit_stats, author)
         clockins = $opts[:in] || {}
         clockouts = $opts[:out] || {}
 
         # Convert clock-in/-outs into Clock objs & commits into Commit objs
         clocks = clocks_to_records(clockins, :in) + clocks_to_records(clockouts, :out)
-        commits = commits_to_records(commits_in)
+        commits = commits_to_records(commits_in, commit_stats)
 
         # Merge & sort everything by date
         data = (commits + clocks).sort { |a,b| a.date <=> b.date }
@@ -239,10 +240,10 @@ class Clockout
             # Merge with config override options
             $opts.merge!(clock_opts) if clock_opts
 
-            commits = repo.commits('master', num)
-            commits.reverse!
+            commits = repo.commits('master', num).reverse
+            commit_stats = repo.commit_stats('master', num).reverse
     
-            prepare_blocks(commits, author)
+            prepare_blocks(commits, commit_stats, author)
         end
     end
 end

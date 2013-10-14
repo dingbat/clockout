@@ -18,7 +18,6 @@ class Commit < Record
             @date = commit.committed_date
             @message = commit.message.gsub("\n",' ')
             @sha = commit.id
-            @stats = commit.stats
         end
     end
 
