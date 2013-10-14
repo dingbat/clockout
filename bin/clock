@@ -162,9 +162,8 @@ if (ARGV[0] == "in" || ARGV[0] == "out")
         file << "\n#{seek_line}\n#{time_line}" if !mod
     end
 elsif (ARGV[0] == "last")
-    print "[clockout] ".green if (ARGV[1] == "--hook")
-    clock = Clockout.new(path, nil, 2)
-    clock.print_last
+    last = Clockout.new(path, nil, 2).last
+    puts "[clockout] ".green + "#{last.minutes.round(2)} minutes logged" if last
 else
     opts = parse_options(ARGV)
     
@@ -182,7 +181,7 @@ else
             end
         elsif opts[:generate] == "hook"
             hook_path = root+"/.git/hooks/post-commit"
-            hook_txt = "#clockout\nclock last --hook"
+            hook_txt = "#clockout\nclock last"
             if File.exist? hook_path
                 contents = File.open(hook_path).read
                 if (contents[hook_txt])
