@@ -162,7 +162,10 @@ if (ARGV[0] == "in" || ARGV[0] == "out")
         file << "\n#{seek_line}\n#{time_line}" if !mod
     end
 elsif (ARGV[0] == "last")
-    last = Clockout.new(path, nil, 2).last
+    #need a decent amount of commits so we can get a good estimation of diffs rate (for pioneer commits), 
+    #but we don't want the hook to take too long
+    num = 150
+    last = Clockout.new(path, nil, num).last
     puts "[clockout] ".green + "#{last.minutes.round(2)} minutes logged" if last
 else
     opts = parse_options(ARGV)
@@ -210,12 +213,17 @@ else
         puts "Showing hours for #{user}"
     end
     
-    clock = Clockout.new(path, user)
+    max = 500
+    clock = Clockout.new(path, user, max)
     printer = Printer.new(clock)
 
     if (opts[:estimations])
         printer.print_estimations
     else
         printer.print_chart(opts[:condensed])
+    end
+
+    if (clock.maxed_out)
+        puts "** only showing the #{max} most recent commits **"
     end
 end

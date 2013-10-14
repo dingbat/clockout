@@ -66,7 +66,7 @@ describe Clockout do
 		c2 = Clock.new(:out, c1.date + g1*60, nil)
 		c3 = Commit.new(nil, c2.date + g2*60)
 
-		run_commits([c1, c2, c3], [0, g2])
+		run_commits([c1, c2, c3], [10, g2])
 	end
 
 	it "should work with in-out" do

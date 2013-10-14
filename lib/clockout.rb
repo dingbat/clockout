@@ -8,7 +8,7 @@ COLS = 80
 DAY_FORMAT = '%B %e, %Y'
 
 class Clockout
-    attr_accessor :blocks, :time_per_day
+    attr_accessor :blocks, :time_per_day, :maxed_out
 
     def commits_to_records(grit_commits, commit_stats)
         my_files = eval($opts[:my_files])
@@ -144,7 +144,7 @@ class Clockout
             if !first.minutes
                 first.estimated = true
                 if diffs_per_min.nan? || diffs_per_min.infinite?
-                    first.minutes = 0
+                    first.minutes = first.addition
                 else
                     first.minutes = first.diffs/diffs_per_min * $opts[:estimation_factor] + first.addition
                 end
@@ -225,7 +225,7 @@ class Clockout
         root_path
     end
 
-    def initialize(path = nil, author = nil, num=500)
+    def initialize(path = nil, author = nil, num = 1)
         @time_per_day = Hash.new(0)
 
         # Default options
@@ -241,7 +241,9 @@ class Clockout
             $opts.merge!(clock_opts) if clock_opts
 
             commits = repo.commits('master', num).reverse
-            commit_stats = repo.commit_stats('master', num).reverse
+            commit_stats = repo.commit_stats('master', num).reverse #much faster if retrieved in batch
+
+            @maxed_out = (commits.size == num)
     
             prepare_blocks(commits, commit_stats, author)
         end
