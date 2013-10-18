@@ -57,7 +57,7 @@ Let's say you've committed a feature and you're now spending time doing QA, writ
 $ clock out
 ```
 
-They work nicely together too, if you're doing work without committing anything.
+They work nicely together too, if you're working without committing anything. Also, both of these accept an optional argument that offsets the clock time, in minutes (ie, if you forgot to `clock in` 10 minutes ago, you can do `clock in -10` instead.)
 
 ## Post-commit hook ##
 
