@@ -7,6 +7,15 @@ require 'record'
 COLS = 80
 DAY_FORMAT = '%B %e, %Y'
 
+# Grit does not support Ruby 2.0 right now
+class String
+  if ((defined? RUBY_VERSION) && (RUBY_VERSION[0..2] == "1.9" || RUBY_VERSION[0].to_i >= 2))
+    def getord(offset); self[offset].ord; end
+  else
+    alias :getord :[]
+  end
+end
+
 class Clockout
     attr_accessor :blocks, :time_per_day, :maxed_out
 
