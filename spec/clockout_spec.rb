@@ -12,9 +12,9 @@ describe Clockout do
   		minutes.each_with_index do |mins, b_idx|
 			block = blocks[b_idx]
 
-			block.size.should eq(mins.size)
+			expect(block.size).to eq(mins.size)
 			mins.each_with_index do |min, idx|
-				block[idx].minutes.should eq(min)
+				expect(block[idx].minutes).to eq(min)
 			end
   		end
   	end
