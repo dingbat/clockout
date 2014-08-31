@@ -4,7 +4,7 @@ end
 
 class Commit < Record
     # From Grit::Commit object
-    attr_accessor :message, :stats, :diffs, :sha
+    attr_accessor :message, :diffs, :sha
     # Time calc
     attr_accessor :minutes, :addition, :overriden, :estimated
     # Whether it's been padded by a clock in/out
@@ -14,30 +14,15 @@ class Commit < Record
         @addition = 0
         @date = date
         if commit
-            @author = commit.author.email
-            @date = commit.committed_date
+            @author = commit.author[:email]
+            @date = commit.time
             @message = commit.message.gsub("\n",' ')
-            @sha = commit.id
-        end
-    end
-
-    def calculate_diffs(my_files, not_my_files)
-        return @diffs if @diffs
-
-        plus, minus = 0, 0
-
-        @stats.to_diffstat.each do |diff_stat|
-            should_include = (diff_stat.filename =~ my_files)
-            should_ignore = not_my_files && (diff_stat.filename =~ not_my_files)
-            if should_include && !should_ignore
-                plus += diff_stat.additions
-                minus += diff_stat.deletions
+            @sha = commit.oid
+            @diffs = 0
+            commit.diff(commit.parents[0]).each_patch do |patch|
+                @diffs += patch.changes
             end
         end
-
-        # Weight deletions half as much, since they are typically
-        # faster to do & also are 1:1 with additions when changing a line
-        @diffs = plus+minus/2
     end
 end
 

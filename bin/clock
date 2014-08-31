@@ -221,7 +221,7 @@ else
         puts "Showing hours for #{user}"
     end
     
-    max = 500
+    max = 800
     clock = Clockout.new(path, user, max)
     printer = Printer.new(clock)
 

@@ -1,4 +1,4 @@
-require 'grit'
+require 'rugged'
 require 'yaml'
 
 require 'printer'
@@ -7,26 +7,14 @@ require 'record'
 COLS = 80
 DAY_FORMAT = '%B %e, %Y'
 
-# Grit does not support Ruby 2.0 right now
-class String
-  if ((defined? RUBY_VERSION) && (RUBY_VERSION[0..2] == "1.9" || RUBY_VERSION[0].to_i >= 2))
-    def getord(offset); self[offset].ord; end
-  else
-    alias :getord :[]
-  end
-end
-
 class Clockout
     attr_accessor :blocks, :time_per_day, :maxed_out
 
-    def commits_to_records(grit_commits, commit_stats)
+    def commits_to_records(git_commits)
         my_files = eval($opts[:my_files])
         not_my_files = eval($opts[:not_my_files] || "")
-        grit_commits.each_with_index.map do |commit, i| 
-            c = Commit.new(commit)
-            c.stats = commit_stats[i][1]
-            c.calculate_diffs(my_files, not_my_files)
-            c
+        git_commits.each_with_index.map do |commit, i| 
+            Commit.new(commit)
         end
     end
 
@@ -164,13 +152,13 @@ class Clockout
         blocks
     end
 
-    def prepare_blocks(commits_in, commit_stats, author)
+    def prepare_blocks(commits_in, author)
         clockins = $opts[:in] || {}
         clockouts = $opts[:out] || {}
 
         # Convert clock-in/-outs into Clock objs & commits into Commit objs
         clocks = clocks_to_records(clockins, :in) + clocks_to_records(clockouts, :out)
-        commits = commits_to_records(commits_in, commit_stats)
+        commits = commits_to_records(commits_in)
 
         # Merge & sort everything by date
         data = (commits + clocks).sort { |a,b| a.date <=> b.date }
@@ -185,29 +173,9 @@ class Clockout
         @blocks.last.last
     end
 
-    def self.get_repo(path, original_path = nil)
-        begin
-            return Grit::Repo.new(path), path
-        rescue Exception => e
-            if e.class == Grit::NoSuchPathError
-                puts_error "Path '#{path}' could not be found."
-                return nil
-            else
-                # Must have drilled down to /
-                if (path.length <= 1)
-                    puts_error "'#{original_path}' is not a Git repository."
-                    return nil
-                end
-
-                # Could be that we're in a directory inside the repo
-                # Strip off last directory
-                one_up = path
-                while ((one_up = one_up[0..-2])[-1] != '/') do end
-
-                # Recursively try one level higher
-                return get_repo(one_up[0..-2], path)
-            end
-        end
+    def self.get_repo(path)
+        repo = Rugged::Repository.discover(path)
+        return repo, repo.workdir
     end
 
     def self.parse_clockfile(file)
@@ -226,12 +194,18 @@ class Clockout
 
     def self.clock_path(path)
         return nil if !path
-        path+"/clock.yml"
+        File.join(path,"clock.yml")
     end
 
     def self.root_path(path)
         repo, root_path = get_repo(path)
         root_path
+    end
+
+    def get_commits(repo, num)
+        walker = Rugged::Walker.new(repo)
+        walker.push(repo.head.target_id)
+        walker.each.take(num)
     end
 
     def initialize(path = nil, author = nil, num = 1)
@@ -249,12 +223,11 @@ class Clockout
             # Merge with config override options
             $opts.merge!(clock_opts) if clock_opts
 
-            commits = repo.commits('master', num).reverse
-            commit_stats = repo.commit_stats('master', num).reverse #much faster if retrieved in batch
+            commits = get_commits(repo, num)
 
             @maxed_out = (commits.size == num)
     
-            prepare_blocks(commits, commit_stats, author)
+            prepare_blocks(commits, author)
         end
     end
 end
