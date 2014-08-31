@@ -2,6 +2,8 @@
 
 require 'clockout'
 
+VERSION = "0.6"
+
 HELP_BANNER = <<-EOS
 
 See hours:
@@ -38,32 +40,15 @@ TEMPLATE_CLOCKFILE = <<-EOF
 
 #time_cutoff: 90
 
-
-### Time-estimation options for each first commit of a timeblock ###
-
-# Diffs of files matched by this regex will be included in commit time estimation.
-# With some projects, there are diffs to binaries, images, files modified by an IDE, etc,
-# that you don't want to report as your own work. Below is an example regex that will only
-# calculate changes made to files with those extensions
-# - Default:  /.*/ (matches everything)
-
-#my_files: /\\.(m|h|txt)$/
-
-# Diffs of files matched by this regex will NOT be included in commit time estimation
-# You also have the option of defining a negative regex match, to ignore certain files.
-# For example, if you added an external library or something, you should ignore it
-# - Default:  <nothing>
-
-#not_my_files: /SomeThirdPartyLibrary/
-
-# Estimation factor
+# Estimation factor (for each first commit of a timeblock)
 # Use the -e option to see the estimations Clockout makes, and tweak them using this 
 # value as necessary.
 # - Default: 1.0
 
 #estimation_factor: 0.9
 
-# Put any override times for specific commits here (minutes). (You can use SHA1 hashes of any length)
+# Put any override times for specific commits here (minutes). (You can use SHA1 hashes
+# of any length). Useful for ignoring commits that add 3rd party libraries, say.
 # Note: keep a space before each hash for the YAML to parse properly.
 
 #overrides:
@@ -90,6 +75,8 @@ def parse_options(args)
         next_arg = args[i+1]
         if (arg == "-h" || arg == "--help")
             opts[:help] = true
+        elsif (arg == "-v" || arg == "--version")
+            opts[:version] = true
         elsif (arg == "-e" || arg == "--estimations")
             opts[:estimations] = true
         elsif (arg == "-c" || arg == "--condensed")
@@ -180,6 +167,11 @@ else
     
     if opts[:help]
         puts HELP_BANNER
+        exit
+    end
+
+    if opts[:version]
+        puts VERSION
         exit
     end
 

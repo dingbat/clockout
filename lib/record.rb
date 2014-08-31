@@ -10,7 +10,7 @@ class Commit < Record
     # Whether it's been padded by a clock in/out
     attr_accessor :clocked_in, :clocked_out
     
-    def initialize(commit = nil, date = nil)
+    def initialize(commit = nil, date = nil, paths = nil)
         @addition = 0
         @date = date
         if commit
@@ -20,7 +20,9 @@ class Commit < Record
             @sha = commit.oid
             @diffs = 0
             commit.diff(commit.parents[0]).each_patch do |patch|
-                @diffs += patch.changes
+                # Weight deletions half as much, since they are typically
+                # faster to do & also are 1:1 with additions when changing a line
+                @diffs += patch.stat[0] + patch.stat[1]/2
             end
         end
     end

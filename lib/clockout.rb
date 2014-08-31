@@ -11,8 +11,6 @@ class Clockout
     attr_accessor :blocks, :time_per_day, :maxed_out
 
     def commits_to_records(git_commits)
-        my_files = eval($opts[:my_files])
-        not_my_files = eval($opts[:not_my_files] || "")
         git_commits.each_with_index.map do |commit, i| 
             Commit.new(commit)
         end
@@ -212,7 +210,7 @@ class Clockout
         @time_per_day = Hash.new(0)
 
         # Default options
-        $opts = {time_cutoff:120, my_files:"/.*/", estimation_factor:1.0}
+        $opts = {time_cutoff:120, estimation_factor:1.0}
 
         if path
             repo, root_path = Clockout.get_repo(path) || exit
