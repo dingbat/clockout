@@ -1,10 +1,12 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    rake (10.4.2)
     rugged (0.21.4)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
+  rake
   rugged
