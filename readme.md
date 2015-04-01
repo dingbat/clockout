@@ -76,3 +76,9 @@ So now your commits will look something like this:
  rewrite clockout-0.5.gem (71%)
 ```
 
+# Getting rugged to install (Mac OS)
+
+```
+brew install cmake
+```
+bundle
