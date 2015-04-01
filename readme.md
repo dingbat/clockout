@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/ihassin/clockout.svg?branch=master)](https://travis-ci.org/ihassin/clockout)
+
 ## :clock9: Clockout ##
 
 You're being paid by the hour, but do you really want to worry about logging your hours? If you're using Git, isn't that already being done for you? Clockout is a tool that analyzes a Git repo and converts your commits into blocks of time worked.
