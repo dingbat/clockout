@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/ihassin/clockout.svg?branch=master)](https://travis-ci.org/ihassin/clockout) [![Code Climate](https://codeclimate.com/github/ihassin/clockout/badges/gpa.svg)](https://codeclimate.com/github/ihassin/clockout) [![Test Coverage](https://codeclimate.com/github/ihassin/clockout/badges/coverage.svg)](https://codeclimate.com/github/ihassin/clockout)
+
 ## :clock9: Clockout ##
 
 You're being paid by the hour, but do you really want to worry about logging your hours? If you're using Git, isn't that already being done for you? Clockout is a tool that analyzes a Git repo and converts your commits into blocks of time worked.
@@ -76,3 +78,9 @@ So now your commits will look something like this:
  rewrite clockout-0.5.gem (71%)
 ```
 
+### Getting rugged to install (Mac OS)
+
+```
+brew install cmake
+bundle
+```
