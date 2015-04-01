@@ -82,6 +82,5 @@ So now your commits will look something like this:
 
 ```
 brew install cmake
-```
 bundle
 ```
