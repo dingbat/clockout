@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/ihassin/clockout.svg?branch=master)](https://travis-ci.org/ihassin/clockout)
+[![Build Status](https://travis-ci.org/ihassin/clockout.svg?branch=master)](https://travis-ci.org/ihassin/clockout) [![Code Climate](https://codeclimate.com/github/ihassin/clockout/badges/gpa.svg)](https://codeclimate.com/github/ihassin/clockout) [![Test Coverage](https://codeclimate.com/github/ihassin/clockout/badges/coverage.svg)](https://codeclimate.com/github/ihassin/clockout)
 
 ## :clock9: Clockout ##
 
